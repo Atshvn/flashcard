@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // Users Collection
+    // ============================================================
+    match /users/{userId} {
+      // Users can read/write only their own profile
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ============================================================
+    // Decks Collection
+    // ============================================================
+    match /decks/{deckId} {
+      // Anyone can read public decks
+      // Authenticated users can read their own decks (public or private)
+      allow read: if resource.data.isPublic == true
+                  || (request.auth != null && resource.data.userId == request.auth.uid);
+
+      // Only authenticated users can create decks
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+
+      // Only the deck owner can update/delete
+      allow update, delete: if request.auth != null
+                            && resource.data.userId == request.auth.uid;
+    }
+
+    // ============================================================
+    // Progress Collection
+    // ============================================================
+    match /progress/{progressId} {
+      // Only the owner can read/write their progress
+      allow read, write: if request.auth != null
+                         && resource.data.userId == request.auth.uid;
+
+      // Allow create if the userId matches the authenticated user
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ============================================================
+    // Activities Collection (Study Streak)
+    // ============================================================
+    match /activities/{activityId} {
+      // Only the owner can read/write their activities
+      allow read, write: if request.auth != null
+                         && resource.data.userId == request.auth.uid;
+
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+    }
+  }
+}
