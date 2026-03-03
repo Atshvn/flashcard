@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { logoutUser } from "@/lib/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -25,7 +26,6 @@ import {
   LogOut,
   Menu,
   Plus,
-  Sparkles,
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -51,18 +51,24 @@ export function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-backdrop-filter:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 mx-auto max-w-7xl">
         {/* Logo */}
         <Link
           href="/"
           className="flex items-center gap-2 font-bold text-xl tracking-tight hover:opacity-80 transition-opacity"
         >
-          <div className="relative">
-            <Sparkles className="h-6 w-6 text-primary" />
-            <div className="absolute -inset-1 bg-primary/20 rounded-full blur-sm -z-10" />
+          <div className="relative w-8 h-8 rounded-md overflow-hidden shrink-0 shadow-sm bg-muted flex items-center justify-center">
+            <Image 
+              src="/logo.jpg" 
+              alt="ANN Flash Logo" 
+              width={32}
+              height={32}
+              className="object-cover w-full h-full" 
+              priority
+            />
           </div>
-          <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+          <span className="bg-linear-to-r from-foreground to-foreground/70 bg-clip-text">
             ANN Flash
           </span>
         </Link>
