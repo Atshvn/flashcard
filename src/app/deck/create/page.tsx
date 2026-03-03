@@ -361,26 +361,28 @@ export default function CreateDeckPage() {
                         <Label className="text-xs text-muted-foreground">
                           Front
                         </Label>
-                        <Input
+                        <Textarea
                           placeholder="Term or question"
                           value={card.front}
                           onChange={(e) =>
                             updateCard(index, "front", e.target.value)
                           }
                           disabled={saving}
+                          rows={2}
                         />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs text-muted-foreground">
                           Back
                         </Label>
-                        <Input
+                        <Textarea
                           placeholder="Definition or answer"
                           value={card.back}
                           onChange={(e) =>
                             updateCard(index, "back", e.target.value)
                           }
                           disabled={saving}
+                          rows={2}
                         />
                       </div>
                     </div>

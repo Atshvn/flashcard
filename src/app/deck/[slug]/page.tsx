@@ -192,7 +192,7 @@ export default function DeckViewPage({
                           <Volume2 className="h-3 w-3" />
                         </Button>
                       </div>
-                      <p className="font-medium">{card.front}</p>
+                      <p className="font-medium whitespace-pre-wrap">{card.front}</p>
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
@@ -208,7 +208,7 @@ export default function DeckViewPage({
                           <Volume2 className="h-3 w-3" />
                         </Button>
                       </div>
-                      <p className="font-medium">{card.back}</p>
+                      <p className="font-medium whitespace-pre-wrap">{card.back}</p>
                     </div>
                   </div>
                   {cardProgress && (

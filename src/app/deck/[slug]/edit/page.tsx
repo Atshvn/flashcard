@@ -209,24 +209,26 @@ export default function EditDeckPage({
                       <Label className="text-xs text-muted-foreground">
                         Front
                       </Label>
-                      <Input
+                      <Textarea
                         value={card.front}
                         onChange={(e) =>
                           updateCardField(index, "front", e.target.value)
                         }
                         disabled={saving}
+                        rows={2}
                       />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs text-muted-foreground">
                         Back
                       </Label>
-                      <Input
+                      <Textarea
                         value={card.back}
                         onChange={(e) =>
                           updateCardField(index, "back", e.target.value)
                         }
                         disabled={saving}
+                        rows={2}
                       />
                     </div>
                   </div>

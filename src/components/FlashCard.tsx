@@ -58,7 +58,7 @@ export function FlashCard({
             <Volume2 className="h-5 w-5" />
           </Button>
           <div className="w-full h-full flex items-center justify-center overflow-auto px-2">
-            <p className="text-3xl md:text-4xl lg:text-5xl font-bold text-center leading-tight tracking-tight text-foreground">
+            <p className="text-3xl md:text-4xl lg:text-5xl font-bold text-center leading-tight tracking-tight text-foreground whitespace-pre-wrap">
               {front}
             </p>
           </div>
