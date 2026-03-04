@@ -169,7 +169,6 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
             />
           </div>
 
-          {/* Feedback */}
           {answerState !== "unanswered" && (
             <Card className={`shrink-0 border-2 ${answerState === "correct" ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "border-red-500 bg-red-50 dark:bg-red-950/20"}`}>
               <CardContent className="p-4">
@@ -180,10 +179,15 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
                   </span>
                 </div>
                 {answerState === "incorrect" && (
-                  <div>
+                  <div className="mb-2">
                     <p className="text-xs text-muted-foreground mb-1">Correct answer:</p>
-                    <p className="font-semibold text-sm whitespace-pre-wrap">{currentCard.back}</p>
+                    <p className="font-semibold text-sm">{currentCard.back}</p>
                   </div>
+                )}
+                {currentCard.description && (
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed border-t pt-2 mt-1">
+                    {currentCard.description}
+                  </p>
                 )}
               </CardContent>
             </Card>

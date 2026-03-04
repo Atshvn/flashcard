@@ -40,19 +40,20 @@ import {
 interface CardItem {
   front: string;
   back: string;
+  description?: string;
 }
 
 const EXAMPLE_JSON = `[
-  {"front":"deploy (/dɪˈplɔɪ/)","back":"Triển khai\\nExample: We will deploy the application to production tomorrow."},
-  {"front":"refactor (/riːˈfæktər/)","back":"Tái cấu trúc\\nExample: I need to refactor this messy code."},
-  {"front":"bug (/bʌɡ/)","back":"Lỗi\\nExample: There is a bug in the login feature."},
-  {"front":"commit (/kəˈmɪt/)","back":"Commit\\nExample: Don't forget to commit your changes."},
-  {"front":"merge (/mɜːrdʒ/)","back":"Gộp code\\nExample: Please merge the feature branch into main."},
-  {"front":"deprecate (/ˈdeprəkeɪt/)","back":"Ngừng hỗ trợ\\nExample: This API version is deprecated."},
-  {"front":"legacy (/ˈleɡəsi/)","back":"Code cũ\\nExample: We still maintain some legacy systems."},
-  {"front":"scalable (/ˈskeɪləbl/)","back":"Mở rộng được\\nExample: The system must be scalable."},
-  {"front":"bottleneck (/ˈbɑːtlnek/)","back":"Điểm nghẽn\\nExample: The database is the bottleneck."},
-  {"front":"rollback (/ˈroʊlbæk/)","back":"Hoàn tác\\nExample: We need to rollback the deployment."}
+  {"front":"deploy","back":"Triển khai","description":"(/dɪˈplɔɪ/)\\nExample: We will deploy the application to production tomorrow."},
+  {"front":"refactor","back":"Tái cấu trúc","description":"(/riːˈfæktər/)\\nExample: I need to refactor this messy code."},
+  {"front":"bug","back":"Lỗi","description":"(/bʌɡ/)\\nExample: There is a bug in the login feature."},
+  {"front":"commit","back":"Commit","description":"(/kəˈmɪt/)\\nExample: Don't forget to commit your changes."},
+  {"front":"merge","back":"Gộp code","description":"(/mɜːrdʒ/)\\nExample: Please merge the feature branch into main."},
+  {"front":"deprecate","back":"Ngừng hỗ trợ","description":"(/ˈdeprəkeɪt/)\\nExample: This API version is deprecated."},
+  {"front":"legacy","back":"Code cũ","description":"(/ˈleɡəsi/)\\nExample: We still maintain some legacy systems."},
+  {"front":"scalable","back":"Mở rộng được","description":"(/ˈskeɪləbl/)\\nExample: The system must be scalable."},
+  {"front":"bottleneck","back":"Điểm nghẽn","description":"(/ˈbɑːtlnek/)\\nExample: The database is the bottleneck."},
+  {"front":"rollback","back":"Hoàn tác","description":"(/ˈroʊlbæk/)\\nExample: We need to rollback the deployment."}
 ]`;
 
 export default function CreateDeckPage() {
@@ -95,7 +96,7 @@ export default function CreateDeckPage() {
 
   const updateCard = (
     index: number,
-    field: "front" | "back",
+    field: "front" | "back" | "description",
     value: string
   ) => {
     const updated = [...cards];
@@ -127,9 +128,10 @@ export default function CreateDeckPage() {
             return null;
           }
         }
-        return data.map((c: { front: string; back: string }) => ({
+        return data.map((c: { front: string; back: string; description?: string }) => ({
           front: c.front,
           back: c.back,
+          ...(c.description ? { description: c.description } : {}),
         }));
       }
 
@@ -148,9 +150,10 @@ export default function CreateDeckPage() {
             return null;
           }
         }
-        return data.cards.map((c: { front: string; back: string }) => ({
+        return data.cards.map((c: { front: string; back: string; description?: string }) => ({
           front: c.front,
           back: c.back,
+          ...(c.description ? { description: c.description } : {}),
         }));
       }
 
@@ -396,6 +399,19 @@ export default function CreateDeckPage() {
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
+                  </div>
+                  {/* Description field — full width */}
+                  <div className="mt-3 space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">
+                      Description <span className="text-muted-foreground/50">(optional — pronunciation, example, notes)</span>
+                    </Label>
+                    <Textarea
+                      placeholder={`e.g. (/ˌvʌlnərəˈbɪləti/)\nExample: Fix the security vulnerability immediately.`}
+                      value={card.description ?? ""}
+                      onChange={(e) => updateCard(index, "description", e.target.value)}
+                      disabled={saving}
+                      rows={2}
+                    />
                   </div>
                 </CardContent>
               </Card>

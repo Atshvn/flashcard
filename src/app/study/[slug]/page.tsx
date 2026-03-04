@@ -271,6 +271,7 @@ export default function StudyPage({
         <FlashCardComponent
           front={currentCard.front}
           back={currentCard.back}
+          description={currentCard.description ?? undefined}
           isFlipped={isFlipped}
           onFlip={handleFlip}
           onSwipeLeft={handleNext}

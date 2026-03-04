@@ -71,6 +71,7 @@ export async function createDeck(
         deckId,
         front: c.front,
         back: c.back,
+        description: c.description ?? null,
         order: i,
       }))
     );
@@ -108,10 +109,11 @@ export async function updateDeck(
     if (data.cards.length > 0) {
       await db.insert(cards).values(
         data.cards.map((c, i) => ({
-          id: c.id && c.id.includes("-") ? c.id : uuidv4(), // Keep UUID format valid
+          id: c.id && c.id.includes("-") ? c.id : uuidv4(),
           deckId,
           front: c.front,
           back: c.back,
+          description: c.description ?? null,
           order: i,
         }))
       );
@@ -148,7 +150,12 @@ async function mapDeckWithCardsAndUser(deckRecs: any, returnArray = false): Prom
       userId: owner?.firebaseUid || d.userId, // Return firebaseUid to UI for logic compatibility
       userDisplayName: owner?.name || "Unknown",
       isPublic: d.isPublic,
-      cards: allCards.filter(c => c.deckId === d.id).map((c) => ({ id: c.id, front: c.front, back: c.back })),
+      cards: allCards.filter(c => c.deckId === d.id).map((c) => ({
+        id: c.id,
+        front: c.front,
+        back: c.back,
+        description: c.description ?? undefined,
+      })),
       createdAt: d.createdAt.toISOString(),
       updatedAt: d.updatedAt.toISOString(),
     };

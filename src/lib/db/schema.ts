@@ -39,6 +39,7 @@ export const cards = pgTable("cards", {
     .notNull(),
   front: text("front").notNull(),
   back: text("back").notNull(),
+  description: text("description"),    // pronunciation, example sentence, extra notes
   exampleSentence: text("example_sentence"),
   audioUrl: text("audio_url"),
   order: integer("order").notNull(),

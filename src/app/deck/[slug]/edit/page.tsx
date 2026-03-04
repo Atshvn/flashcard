@@ -70,7 +70,7 @@ export default function EditDeckPage({
 
   const updateCardField = (
     index: number,
-    field: "front" | "back",
+    field: "front" | "back" | "description",
     value: string
   ) => {
     const updated = [...cards];
@@ -242,6 +242,19 @@ export default function EditDeckPage({
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
+                </div>
+                {/* Description field — full width */}
+                <div className="mt-3 space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">
+                    Description <span className="text-muted-foreground/50">(optional — pronunciation, example, notes)</span>
+                  </Label>
+                  <Textarea
+                    placeholder={`e.g. (/ˌvʌlnərəˈbɪləti/)\nExample: Fix the security vulnerability immediately.`}
+                    value={card.description ?? ""}
+                    onChange={(e) => updateCardField(index, "description", e.target.value)}
+                    disabled={saving}
+                    rows={2}
+                  />
                 </div>
               </CardContent>
             </Card>

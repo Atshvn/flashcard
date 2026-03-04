@@ -2,6 +2,7 @@ export interface FlashCard {
   id: string;
   front: string;
   back: string;
+  description?: string | null; // pronunciation, example sentence, extra notes
   exampleSentence?: string | null;
   audioUrl?: string | null;
 }

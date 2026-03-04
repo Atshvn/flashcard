@@ -8,6 +8,7 @@ import { speak } from "@/lib/speech";
 interface FlashCardProps {
   front: string;
   back: string;
+  description?: string | null;
   isFlipped?: boolean;
   onFlip?: () => void;
   onSwipeLeft?: () => void;  // next card
@@ -17,6 +18,7 @@ interface FlashCardProps {
 export function FlashCard({
   front,
   back,
+  description,
   isFlipped = false,
   onFlip,
   onSwipeLeft,
@@ -117,10 +119,15 @@ export function FlashCard({
           >
             <Volume2 className="h-5 w-5" />
           </Button>
-          <div className="w-full h-full flex flex-col items-center justify-center overflow-auto px-2 space-y-4">
-            <p className="text-xl md:text-3xl lg:text-4xl font-semibold text-center leading-relaxed text-foreground whitespace-pre-wrap">
+          <div className="w-full h-full flex flex-col items-center justify-center overflow-auto px-2 gap-3">
+            <p className="text-xl md:text-3xl lg:text-4xl font-bold text-center leading-relaxed text-foreground">
               {back}
             </p>
+            {description && (
+              <p className="text-sm md:text-base text-muted-foreground text-center leading-relaxed whitespace-pre-wrap max-w-sm">
+                {description}
+              </p>
+            )}
           </div>
           <p className="absolute bottom-4 text-xs text-muted-foreground/60 font-medium tracking-wide">
             Tap to flip back
