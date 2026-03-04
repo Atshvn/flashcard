@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { getUserDecks, getUserProgress, getStudyStreak, deleteDeck } from "@/lib/firestore";
-import type { Deck, CardProgress } from "@/lib/types";
+import { getUserDecks, getUserProgress, getStudyStreak, deleteDeck, getStudySessions } from "@/lib/firestore";
+import type { Deck, CardProgress, StudySession } from "@/lib/types";
 import { DeckCard } from "@/components/DeckCard";
 import { AnalyticsCard } from "@/components/AnalyticsCard";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,10 @@ import {
   Plus,
   Loader2,
   Upload,
+  Star,
+  AlertTriangle,
+  CalendarClock,
+  History,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -32,6 +36,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [decks, setDecks] = useState<Deck[]>([]);
   const [progress, setProgress] = useState<CardProgress[]>([]);
+  const [sessions, setSessions] = useState<StudySession[]>([]);
   const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -42,14 +47,16 @@ export default function DashboardPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const [userDecks, userProgress, userStreak] = await Promise.all([
+      const [userDecks, userProgress, userStreak, userSessions] = await Promise.all([
         getUserDecks(user.uid),
         getUserProgress(user.uid),
         getStudyStreak(user.uid),
+        getStudySessions(user.uid),
       ]);
       setDecks(userDecks);
       setProgress(userProgress);
       setStreak(userStreak);
+      setSessions(userSessions);
     } catch (error) {
       console.error("Failed to load dashboard data:", error);
     } finally {
@@ -73,6 +80,10 @@ export default function DashboardPage() {
   const wrongCount = progress.reduce((sum, p) => sum + p.wrongCount, 0);
   const totalAttempts = correctCount + wrongCount;
   const accuracy = totalAttempts > 0 ? Math.round((correctCount / totalAttempts) * 100) : 0;
+  const learnedWords = progress.filter((p) => p.masteryLevel >= 4).length;
+  const weakWords = progress.filter((p) => p.masteryLevel <= 2 && (p.correctCount + p.wrongCount) > 0).length;
+  const now = new Date();
+  const upcomingReviews = progress.filter((p) => p.nextReview && new Date(p.nextReview) <= now).length;
 
   const handleDeleteConfirm = (deckId: string) => {
     setDeckToDelete(deckId);
@@ -176,6 +187,56 @@ export default function DashboardPage() {
           variant="warning"
         />
       </div>
+
+      {/* Extended Analytics */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <AnalyticsCard
+          title="Learned Words"
+          value={learnedWords}
+          subtitle="mastery ≥ 4"
+          icon={Star}
+          variant="success"
+        />
+        <AnalyticsCard
+          title="Weak Words"
+          value={weakWords}
+          subtitle="mastery ≤ 2"
+          icon={AlertTriangle}
+          variant="warning"
+        />
+        <AnalyticsCard
+          title="Due for Review"
+          value={upcomingReviews}
+          subtitle="spaced repetition"
+          icon={CalendarClock}
+          variant="info"
+        />
+      </div>
+
+      {/* Recent Sessions */}
+      {sessions.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><History className="h-5 w-5" />Recent Sessions</h2>
+          <div className="space-y-2">
+            {sessions.slice(0, 5).map((s, i) => {
+              const acc = s.totalQuestions > 0 ? Math.round((s.correctAnswers / s.totalQuestions) * 100) : 0;
+              const modeLabel: Record<string, string> = { flashcard: "Flashcards", write: "Write", multiple_choice: "Multiple Choice", match: "Match" };
+              return (
+                <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card">
+                  <div>
+                    <span className="font-medium text-sm">{modeLabel[s.mode] || s.mode}</span>
+                    <span className="text-muted-foreground text-xs ml-2">{new Date(s.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm">
+                    <span>{s.correctAnswers}/{s.totalQuestions}</span>
+                    <span className={`font-bold ${acc >= 80 ? "text-green-500" : acc >= 50 ? "text-yellow-500" : "text-red-500"}`}>{acc}%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Decks */}
       <div className="space-y-4">

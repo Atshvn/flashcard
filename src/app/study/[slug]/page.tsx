@@ -7,9 +7,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   getDeckBySlug,
   saveCardProgress,
-  recordStudyActivity,
+  saveStudySession,
 } from "@/lib/firestore";
 import type { Deck, FlashCard, StudyResult } from "@/lib/types";
+import { processAnswerSimple } from "@/lib/spacedRepetition";
 import { FlashCard as FlashCardComponent } from "@/components/FlashCard";
 import { StudyControls } from "@/components/StudyControls";
 import { Button } from "@/components/ui/button";
@@ -95,14 +96,18 @@ export default function StudyPage({
       const isHard = result === "hard" || result === "again";
 
       // Update study state (instant — local state only)
+      let totalCorrectSoFar = studyState.correct + (isCorrect ? 1 : 0);
+
       setStudyState((prev) => {
         const newState = { ...prev };
         if (!prev.answeredCards.has(currentCard.id)) {
-          newState.answeredCards = new Set(prev.answeredCards);
-          newState.answeredCards.add(currentCard.id);
+          const newAnswered = new Set(prev.answeredCards);
+          newAnswered.add(currentCard.id);
+          newState.answeredCards = newAnswered;
 
           if (isCorrect) {
             newState.correct = prev.correct + 1;
+            totalCorrectSoFar = newState.correct;
           } else {
             newState.wrong = prev.wrong + 1;
           }
@@ -114,13 +119,21 @@ export default function StudyPage({
         return newState;
       });
 
-      // Save progress to Firestore — fire-and-forget (don't block UI)
+      // Save progress to DB — fire-and-forget (don't block UI)
       if (user && deck) {
-        Promise.all([
-          saveCardProgress(user.uid, deck.id, currentCard.id, isCorrect),
-          recordStudyActivity(user.uid),
-        ]).catch((error) => {
-          console.error("Failed to save progress:", error);
+        const sm2 = processAnswerSimple(isCorrect, 2.5, 1, 0);
+        
+        saveCardProgress(
+          user.uid, 
+          deck.id, 
+          currentCard.id, 
+          isCorrect,
+          sm2.interval,
+          sm2.easeFactor,
+          sm2.masteryLevel,
+          sm2.nextReviewDate
+        ).catch((err: unknown) => {
+          console.error("Failed to save progress:", err);
         });
       }
 
@@ -131,10 +144,13 @@ export default function StudyPage({
           setCurrentIndex((prev) => prev + 1);
         }, 200);
       } else {
+        if (user && deck) {
+           saveStudySession(user.uid, deck.id, "flashcard", cards.length, totalCorrectSoFar, 0).catch(console.error);
+        }
         setShowSummary(true);
       }
     },
-    [cards, currentIndex, deck, user]
+    [cards, currentIndex, deck, user, studyState.correct]
   );
 
   const handleNext = useCallback(() => {
@@ -232,39 +248,37 @@ export default function StudyPage({
       : 0;
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-4 md:py-8 flex flex-col h-[calc(100vh-4rem)]">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6 shrink-0 z-10">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+    <div className="flex flex-col h-dvh max-w-3xl mx-auto px-3 py-3 md:px-4 md:py-6">
+      {/* Header — compact on mobile */}
+      <div className="flex items-center justify-between mb-3 shrink-0">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-10 w-10 touch-manipulation">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-xl font-bold">{deck.title}</h1>
-            <p className="text-sm text-muted-foreground">Study Mode</p>
+          <div className="min-w-0">
+            <h1 className="text-base md:text-xl font-bold truncate max-w-[180px] md:max-w-none">{deck.title}</h1>
+            <p className="text-xs text-muted-foreground">Flashcards</p>
           </div>
         </div>
-        <div className="flex items-center gap-4 text-sm">
-          <span className="text-green-500 font-medium">
-            ✓ {studyState.correct}
-          </span>
-          <span className="text-red-500 font-medium">
-            ✗ {studyState.wrong}
-          </span>
+        <div className="flex items-center gap-3 text-sm font-semibold">
+          <span className="text-green-500">✓ {studyState.correct}</span>
+          <span className="text-red-500">✗ {studyState.wrong}</span>
         </div>
       </div>
 
-      {/* Flashcard */}
-      <div className="flex-1 w-full flex flex-col justify-center mb-6 relative min-h-[300px]">
+      {/* Flashcard — takes remaining space */}
+      <div className="flex-1 w-full min-h-0 mb-3">
         <FlashCardComponent
           front={currentCard.front}
           back={currentCard.back}
           isFlipped={isFlipped}
           onFlip={handleFlip}
+          onSwipeLeft={handleNext}
+          onSwipeRight={handlePrevious}
         />
       </div>
 
-      {/* Controls */}
+      {/* Controls — pinned to bottom, large touch targets */}
       <StudyControls
         currentIndex={currentIndex}
         totalCards={cards.length}
@@ -276,12 +290,11 @@ export default function StudyPage({
         onAnswer={handleAnswer}
       />
 
-      {/* Keyboard shortcuts hint */}
-      <div className="mt-4 pb-4 text-center text-xs text-muted-foreground hidden md:block">
-        <span>
-          Space: Flip • ← →: Navigate • 1: Again • 2: Hard • 3: Known
-        </span>
+      {/* Keyboard shortcuts hint — desktop only */}
+      <div className="mt-2 pb-2 text-center text-xs text-muted-foreground hidden md:block">
+        Space: Flip • ← →: Navigate • 1: Again • 2: Hard • 3: Known
       </div>
+
 
       {/* Summary Dialog */}
       <Dialog open={showSummary} onOpenChange={setShowSummary}>

@@ -1,11 +1,9 @@
-// ============================================================
-// Flashcard & Deck Types
-// ============================================================
-
 export interface FlashCard {
   id: string;
   front: string;
   back: string;
+  exampleSentence?: string | null;
+  audioUrl?: string | null;
 }
 
 export interface Deck {
@@ -13,7 +11,8 @@ export interface Deck {
   title: string;
   slug: string;
   description: string;
-  userId: string;
+  userId: string; // The UUID of the owner in our DB
+  firebaseUid?: string; // Additional field to pass info if needed
   userDisplayName: string;
   isPublic: boolean;
   cards: FlashCard[];
@@ -25,12 +24,8 @@ export interface DeckFormData {
   title: string;
   description: string;
   isPublic: boolean;
-  cards: Omit<FlashCard, "id">[];
+  cards: Omit<FlashCard, "id" | "exampleSentence" | "audioUrl">[];
 }
-
-// ============================================================
-// User & Auth Types
-// ============================================================
 
 export interface UserProfile {
   uid: string;
@@ -40,39 +35,28 @@ export interface UserProfile {
   createdAt: string;
 }
 
-// ============================================================
-// Study Progress Types
-// ============================================================
-
 export interface CardProgress {
   userId: string;
-  deckId: string;
   cardId: string;
   correctCount: number;
   wrongCount: number;
-  lastReviewedAt: string;
+  masteryLevel: number;
+  easeFactor: number;
+  interval: number;
+  nextReview: string | null;
+  lastReviewed: string | null;
 }
 
 export interface StudySession {
-  deckId: string;
-  deckTitle: string;
-  totalCards: number;
-  correctCount: number;
-  wrongCount: number;
-  hardCards: FlashCard[];
-  completedAt: Date;
-}
-
-export interface StudyActivity {
+  id?: string;
   userId: string;
-  date: string; // YYYY-MM-DD
-  cardsStudied: number;
-  timestamp: string;
+  deckId: string;
+  mode: string;
+  totalQuestions: number;
+  correctAnswers: number;
+  durationSeconds: number;
+  createdAt: string;
 }
-
-// ============================================================
-// Analytics Types
-// ============================================================
 
 export interface DeckAnalytics {
   deckId: string;
@@ -91,10 +75,9 @@ export interface UserAnalytics {
   overallAccuracy: number;
   studyStreak: number;
   deckAnalytics: DeckAnalytics[];
+  learnedWords: number;
+  weakWords: number;
+  upcomingReviews: number;
 }
-
-// ============================================================
-// Component Props Types
-// ============================================================
 
 export type StudyResult = "known" | "hard" | "again";

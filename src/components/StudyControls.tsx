@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import {
   ChevronLeft,
   ChevronRight,
@@ -34,99 +33,81 @@ export function StudyControls({
   onAnswer,
 }: StudyControlsProps) {
   return (
-    <div className="space-y-4">
-      {/* Progress indicator */}
-      <div className="text-center">
-        <span className="text-sm font-medium text-muted-foreground">
-          Card{" "}
-          <span className="text-foreground font-semibold">
-            {currentIndex + 1}
-          </span>{" "}
-          of <span className="text-foreground font-semibold">{totalCards}</span>
+    <div className="space-y-3 pb-safe">
+      {/* Progress */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground shrink-0">
+          {currentIndex + 1} / {totalCards}
         </span>
-        <div className="w-full h-1.5 bg-muted rounded-full mt-2 overflow-hidden">
+        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
           <div
             className="h-full gradient-primary rounded-full transition-all duration-300"
-            style={{
-              width: `${((currentIndex + 1) / totalCards) * 100}%`,
-            }}
+            style={{ width: `${((currentIndex + 1) / totalCards) * 100}%` }}
           />
         </div>
       </div>
 
-      {/* Answer buttons - only show when flipped */}
+      {/* Answer buttons — show when flipped */}
       {isFlipped && (
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full">
-          <Button
-            variant="outline"
-            className="h-14 sm:h-12 flex-col sm:flex-row gap-1 border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-500"
+        <div className="grid grid-cols-3 gap-2 w-full">
+          <button
             onClick={() => onAnswer("again")}
+            className="h-16 md:h-14 flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-red-500/30 text-red-500 bg-red-500/5 active:bg-red-500/20 transition-colors touch-manipulation font-medium"
           >
-            <X className="h-4 w-4" />
-            <span className="text-xs sm:text-sm font-medium">Again</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-14 sm:h-12 flex-col sm:flex-row gap-1 border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
+            <X className="h-5 w-5" />
+            <span className="text-xs md:text-sm">Again</span>
+          </button>
+          <button
             onClick={() => onAnswer("hard")}
+            className="h-16 md:h-14 flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-amber-500/30 text-amber-500 bg-amber-500/5 active:bg-amber-500/20 transition-colors touch-manipulation font-medium"
           >
-            <AlertTriangle className="h-4 w-4" />
-            <span className="text-xs sm:text-sm font-medium">Hard</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-14 sm:h-12 flex-col sm:flex-row gap-1 border-green-500/30 text-green-500 hover:bg-green-500/10 hover:text-green-500"
+            <AlertTriangle className="h-5 w-5" />
+            <span className="text-xs md:text-sm">Hard</span>
+          </button>
+          <button
             onClick={() => onAnswer("known")}
+            className="h-16 md:h-14 flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-green-500/30 text-green-500 bg-green-500/5 active:bg-green-500/20 transition-colors touch-manipulation font-medium"
           >
-            <Check className="h-4 w-4" />
-            <span className="text-xs sm:text-sm font-medium">Known</span>
-          </Button>
+            <Check className="h-5 w-5" />
+            <span className="text-xs md:text-sm">Known</span>
+          </button>
         </div>
       )}
 
-      {/* Navigation buttons */}
-      <div className="flex items-center justify-between sm:justify-center sm:gap-4 pt-2">
-        <Button
-          variant="outline"
-          size="icon"
+      {/* Navigation row */}
+      <div className="flex items-center justify-between gap-2">
+        <button
           onClick={onPrevious}
           disabled={currentIndex === 0}
-          className="h-12 w-12 sm:h-10 sm:w-10 rounded-full sm:rounded-md"
+          className="h-12 w-12 flex items-center justify-center rounded-full border border-border bg-card disabled:opacity-30 active:bg-muted transition-colors touch-manipulation"
         >
-          <ChevronLeft className="h-5 w-5 sm:h-4 sm:w-4" />
-        </Button>
+          <ChevronLeft className="h-5 w-5" />
+        </button>
 
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="icon"
+          <button
             onClick={onShuffle}
-            className="h-12 w-12 sm:h-10 sm:w-10"
-            title="Shuffle cards"
+            title="Shuffle"
+            className="h-12 w-12 flex items-center justify-center rounded-xl border border-border bg-card active:bg-muted transition-colors touch-manipulation"
           >
-            <Shuffle className="h-5 w-5 sm:h-4 sm:w-4" />
-          </Button>
-
-          <Button
-            variant="outline"
-            size="icon"
+            <Shuffle className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <button
             onClick={onReset}
-            className="h-12 w-12 sm:h-10 sm:w-10"
-            title="Reset progress"
+            title="Reset"
+            className="h-12 w-12 flex items-center justify-center rounded-xl border border-border bg-card active:bg-muted transition-colors touch-manipulation"
           >
-            <RotateCcw className="h-5 w-5 sm:h-4 sm:w-4" />
-          </Button>
+            <RotateCcw className="h-4 w-4 text-muted-foreground" />
+          </button>
         </div>
 
-        <Button
-          variant="outline"
-          size="icon"
+        <button
           onClick={onNext}
           disabled={currentIndex >= totalCards - 1}
-          className="h-12 w-12 sm:h-10 sm:w-10 rounded-full sm:rounded-md"
+          className="h-12 w-12 flex items-center justify-center rounded-full border border-border bg-card disabled:opacity-30 active:bg-muted transition-colors touch-manipulation"
         >
-          <ChevronRight className="h-5 w-5 sm:h-4 sm:w-4" />
-        </Button>
+          <ChevronRight className="h-5 w-5" />
+        </button>
       </div>
     </div>
   );

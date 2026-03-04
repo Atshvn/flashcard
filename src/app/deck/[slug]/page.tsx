@@ -1,16 +1,14 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { getDeckBySlug, getDeckProgress } from "@/lib/firestore";
 import type { Deck, CardProgress } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
   BookOpen,
@@ -20,8 +18,21 @@ import {
   Pencil,
   Share2,
   Volume2,
+  PenLine,
+  LayoutGrid,
+  Shuffle,
+  Play,
 } from "lucide-react";
 import { speak } from "@/lib/speech";
+
+type StudyMode = "flashcard" | "write" | "multiple-choice" | "match";
+
+const MODES: { id: StudyMode; label: string; icon: React.ReactNode; description: string }[] = [
+  { id: "flashcard",       label: "Flashcards",       icon: <BookOpen className="h-5 w-5" />,    description: "Flip cards, self-grade" },
+  { id: "write",           label: "Write",            icon: <PenLine className="h-5 w-5" />,     description: "Type the answer" },
+  { id: "multiple-choice", label: "Multiple Choice",  icon: <LayoutGrid className="h-5 w-5" />,  description: "Pick the right option" },
+  { id: "match",           label: "Match",            icon: <Shuffle className="h-5 w-5" />,     description: "Match pairs" },
+];
 
 export default function DeckViewPage({
   params,
@@ -30,17 +41,18 @@ export default function DeckViewPage({
 }) {
   const { slug } = use(params);
   const { user } = useAuth();
+  const router = useRouter();
   const [deck, setDeck] = useState<Deck | null>(null);
   const [progress, setProgress] = useState<CardProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<StudyMode>("flashcard");
 
   useEffect(() => {
     async function loadDeck() {
       try {
         const deckData = await getDeckBySlug(slug);
         setDeck(deckData);
-
         if (deckData && user) {
           const progressData = await getDeckProgress(user.uid, deckData.id);
           setProgress(progressData);
@@ -58,6 +70,15 @@ export default function DeckViewPage({
     await navigator.clipboard.writeText(window.location.href);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const getStudyUrl = (mode: StudyMode): string => {
+    if (mode === "flashcard") return `/study/${slug}`;
+    return `/deck/${slug}/${mode}`;
+  };
+
+  const handleStartStudy = () => {
+    router.push(getStudyUrl(selectedMode));
   };
 
   if (loading) {
@@ -97,26 +118,26 @@ export default function DeckViewPage({
       : 0;
 
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-8">
+    <div className="container mx-auto max-w-4xl px-4 py-6 md:py-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6 md:mb-8">
+        <div className="min-w-0">
           <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-3xl font-bold tracking-tight">{deck.title}</h1>
-            <Badge variant={deck.isPublic ? "default" : "secondary"}>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">{deck.title}</h1>
+            <Badge variant={deck.isPublic ? "default" : "secondary"} className="shrink-0">
               {deck.isPublic ? "Public" : "Private"}
             </Badge>
           </div>
           {deck.description && (
-            <p className="text-muted-foreground">{deck.description}</p>
+            <p className="text-muted-foreground text-sm">{deck.description}</p>
           )}
           <p className="text-sm text-muted-foreground mt-1">
             by {deck.userDisplayName} • {deck.cards.length} cards
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-2 shrink-0 mt-4 sm:mt-0">
+        <div className="flex w-full sm:w-auto gap-2 shrink-0">
           {isOwner && (
-            <Button variant="outline" size="sm" className="w-full sm:w-auto gap-2 h-10" asChild>
+            <Button variant="outline" size="sm" className="flex-1 sm:flex-none gap-2 h-10" asChild>
               <Link href={`/deck/${slug}/edit`}>
                 <Pencil className="h-4 w-4" />
                 Edit
@@ -126,21 +147,56 @@ export default function DeckViewPage({
           <Button
             variant="outline"
             size="sm"
-            className="w-full sm:w-auto gap-2 h-10"
+            className="flex-1 sm:flex-none gap-2 h-10"
             onClick={handleCopyLink}
           >
-            {copied ? (
-              <Copy className="h-4 w-4" />
-            ) : (
-              <Share2 className="h-4 w-4" />
-            )}
+            {copied ? <Copy className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
             {copied ? "Copied!" : "Share"}
           </Button>
-          <Button size="sm" className="w-full sm:w-auto gap-2 h-10" asChild>
-            <Link href={`/study/${slug}`}>
-              <BookOpen className="h-4 w-4" />
-              Study
-            </Link>
+        </div>
+      </div>
+
+      {/* Study Mode Selector */}
+      <div className="mb-8 p-4 md:p-5 rounded-2xl border border-border/60 bg-card/50">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+          Study Mode
+        </h2>
+
+        {/* Mode radio buttons */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+          {MODES.map((mode) => {
+            const isSelected = selectedMode === mode.id;
+            return (
+              <button
+                key={mode.id}
+                onClick={() => setSelectedMode(mode.id)}
+                className={`
+                  flex flex-col items-center justify-center gap-1.5 h-20 md:h-[72px] rounded-xl border-2 text-sm font-medium transition-all duration-150 touch-manipulation active:scale-[0.97]
+                  ${isSelected
+                    ? "border-primary bg-primary text-primary-foreground shadow-md"
+                    : "border-border bg-background hover:border-primary/40 hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                  }
+                `}
+              >
+                {mode.icon}
+                <span>{mode.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Selected mode description + CTA */}
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {MODES.find((m) => m.id === selectedMode)?.description}
+          </p>
+          <Button
+            onClick={handleStartStudy}
+            className="gap-2 h-11 px-6 shrink-0 touch-manipulation"
+            size="default"
+          >
+            <Play className="h-4 w-4 fill-current" />
+            Study
           </Button>
         </div>
       </div>
@@ -148,12 +204,11 @@ export default function DeckViewPage({
       {/* Progress (if logged in) */}
       {user && totalAttempts > 0 && (
         <Card className="border-border/50 mb-8">
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium">Your Progress</span>
               <span className="text-sm text-muted-foreground">
-                {studiedCards}/{deck.cards.length} cards studied • {accuracy}%
-                accuracy
+                {studiedCards}/{deck.cards.length} studied • {accuracy}% accuracy
               </span>
             </div>
             <Progress value={deckProgress} className="h-2" />
@@ -177,7 +232,7 @@ export default function DeckViewPage({
                   <span className="text-sm font-medium text-muted-foreground min-w-[2rem] pt-0.5">
                     {index + 1}.
                   </span>
-                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -213,12 +268,8 @@ export default function DeckViewPage({
                   </div>
                   {cardProgress && (
                     <div className="text-xs text-muted-foreground text-right shrink-0">
-                      <div className="text-green-500">
-                        ✓ {cardProgress.correctCount}
-                      </div>
-                      <div className="text-red-500">
-                        ✗ {cardProgress.wrongCount}
-                      </div>
+                      <div className="text-green-500">✓ {cardProgress.correctCount}</div>
+                      <div className="text-red-500">✗ {cardProgress.wrongCount}</div>
                     </div>
                   )}
                 </div>
@@ -230,3 +281,4 @@ export default function DeckViewPage({
     </div>
   );
 }
+

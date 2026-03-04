@@ -1,0 +1,216 @@
+"use client";
+
+import { useEffect, useState, useCallback, use, useRef } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
+import { getDeckBySlug, saveCardProgress, saveStudySession } from "@/lib/firestore";
+import { processAnswerSimple } from "@/lib/spacedRepetition";
+import type { Deck, FlashCard } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Card, CardContent } from "@/components/ui/card";
+import { Loader2, ArrowLeft, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
+
+function similarity(a: string, b: string): number {
+  const s1 = a.toLowerCase().trim();
+  const s2 = b.toLowerCase().trim();
+  if (s1 === s2) return 1;
+  const longer = s1.length > s2.length ? s1 : s2;
+  const shorter = s1.length > s2.length ? s2 : s1;
+  if (longer.length === 0) return 1;
+  const costs: number[] = [];
+  for (let i = 0; i <= longer.length; i++) {
+    let lastVal = i;
+    for (let j = 0; j <= shorter.length; j++) {
+      if (i === 0) { costs[j] = j; }
+      else if (j > 0) {
+        let newVal = costs[j - 1];
+        if (longer[i - 1] !== shorter[j - 1]) newVal = Math.min(Math.min(newVal, lastVal), costs[j]) + 1;
+        costs[j - 1] = lastVal;
+        lastVal = newVal;
+      }
+    }
+    if (i > 0) costs[shorter.length] = lastVal;
+  }
+  return (longer.length - costs[shorter.length]) / longer.length;
+}
+
+type AnswerState = "unanswered" | "correct" | "incorrect";
+
+export default function WriteModePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params);
+  const { user } = useAuth();
+  const router = useRouter();
+  const [deck, setDeck] = useState<Deck | null>(null);
+  const [cards, setCards] = useState<FlashCard[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answer, setAnswer] = useState("");
+  const [answerState, setAnswerState] = useState<AnswerState>("unanswered");
+  const [correctCount, setCorrectCount] = useState(0);
+  const [wrongCount, setWrongCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [finished, setFinished] = useState(false);
+  const sessionStartRef = useRef<number>(0);
+  useEffect(() => { sessionStartRef.current = Date.now(); }, []);
+
+  useEffect(() => {
+    getDeckBySlug(slug).then((d) => {
+      if (d) { setDeck(d); setCards(d.cards); }
+      setLoading(false);
+    });
+  }, [slug]);
+
+  const currentCard = cards[currentIndex];
+  const progress = cards.length > 0 ? Math.round((currentIndex / cards.length) * 100) : 0;
+
+  const handleSubmit = useCallback(() => {
+    if (!currentCard || answerState !== "unanswered") return;
+    const sim = similarity(answer, currentCard.back);
+    const isCorrect = sim >= 0.75;
+    setAnswerState(isCorrect ? "correct" : "incorrect");
+    if (isCorrect) setCorrectCount((c) => c + 1);
+    else setWrongCount((c) => c + 1);
+    if (user && deck) {
+      const sm2 = processAnswerSimple(isCorrect);
+      saveCardProgress(user.uid, deck.id, currentCard.id, isCorrect, sm2.interval, sm2.easeFactor, sm2.masteryLevel, sm2.nextReviewDate).catch(console.error);
+    }
+  }, [answer, currentCard, answerState, user, deck]);
+
+  const handleNext = useCallback(() => {
+    if (currentIndex < cards.length - 1) {
+      setCurrentIndex((i) => i + 1);
+      setAnswer("");
+      setAnswerState("unanswered");
+    } else {
+      if (user && deck) {
+        const duration = Math.round((Date.now() - sessionStartRef.current) / 1000);
+        saveStudySession(user.uid, deck.id, "write", cards.length, correctCount, duration).catch(console.error);
+      }
+      setFinished(true);
+    }
+  }, [currentIndex, cards.length, user, deck, correctCount]);
+
+  if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (!deck) return <div className="min-h-[60vh] flex items-center justify-center"><p>Deck not found</p></div>;
+
+  if (finished) {
+    const accuracy = cards.length > 0 ? Math.round((correctCount / cards.length) * 100) : 0;
+    return (
+      <div className="min-h-[80vh] flex flex-col items-center justify-center px-4 text-center">
+        <div className="text-6xl mb-4">📝</div>
+        <h1 className="text-2xl md:text-3xl font-bold mb-1">Write Mode Complete!</h1>
+        <p className="text-muted-foreground mb-8">{deck.title}</p>
+        <div className="grid grid-cols-3 gap-3 mb-8 w-full max-w-sm">
+          <Card><CardContent className="pt-4 pb-4 text-center"><div className="text-2xl font-bold text-green-500">{correctCount}</div><div className="text-xs text-muted-foreground mt-1">Correct</div></CardContent></Card>
+          <Card><CardContent className="pt-4 pb-4 text-center"><div className="text-2xl font-bold text-red-500">{wrongCount}</div><div className="text-xs text-muted-foreground mt-1">Wrong</div></CardContent></Card>
+          <Card><CardContent className="pt-4 pb-4 text-center"><div className="text-2xl font-bold text-primary">{accuracy}%</div><div className="text-xs text-muted-foreground mt-1">Score</div></CardContent></Card>
+        </div>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <Button className="h-12 gap-2 touch-manipulation" onClick={() => { setCurrentIndex(0); setAnswer(""); setAnswerState("unanswered"); setCorrectCount(0); setWrongCount(0); setFinished(false); }}>
+            <RotateCcw className="h-4 w-4" />Try Again
+          </Button>
+          <Button variant="outline" className="h-12 touch-manipulation" asChild><Link href={`/deck/${slug}`}>Back to Deck</Link></Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-dvh max-w-2xl mx-auto px-3 py-3 md:px-4 md:py-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3 shrink-0">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-10 w-10 touch-manipulation"><ArrowLeft className="h-5 w-5" /></Button>
+          <div className="min-w-0">
+            <h1 className="text-base font-bold truncate max-w-[180px] md:max-w-none">{deck.title}</h1>
+            <p className="text-xs text-muted-foreground">Write</p>
+          </div>
+        </div>
+        <div className="flex gap-3 text-sm font-semibold">
+          <span className="text-green-500">✓ {correctCount}</span>
+          <span className="text-red-500">✗ {wrongCount}</span>
+        </div>
+      </div>
+
+      {/* Progress */}
+      <Progress value={progress} className="mb-4 h-1.5" />
+
+      {currentCard && (
+        <div className="flex flex-col flex-1 gap-3 overflow-hidden">
+          {/* Front card */}
+          <Card className="border-border/50 shadow-lg shrink-0">
+            <CardContent className="p-5 md:p-8 text-center">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">What is the meaning of:</p>
+              <p className="text-2xl md:text-3xl font-bold whitespace-pre-wrap leading-tight">{currentCard.front}</p>
+            </CardContent>
+          </Card>
+
+          {/* Input */}
+          <div className="shrink-0 space-y-2">
+            <label className="text-sm font-medium text-muted-foreground">Your answer:</label>
+            <textarea
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (answerState === "unanswered") handleSubmit(); else handleNext();
+                }
+              }}
+              placeholder="Type your answer..."
+              disabled={answerState !== "unanswered"}
+              rows={2}
+              className={`w-full rounded-xl border px-4 py-3 text-base resize-none bg-background outline-none transition-colors
+                ${answerState === "correct" ? "border-green-500 focus:ring-green-500" : answerState === "incorrect" ? "border-red-500 focus:ring-red-500" : "border-border focus:border-primary"}
+                disabled:opacity-60`}
+              autoFocus
+              style={{ fontSize: "16px" }} /* Prevent iOS zoom */
+            />
+          </div>
+
+          {/* Feedback */}
+          {answerState !== "unanswered" && (
+            <Card className={`shrink-0 border-2 ${answerState === "correct" ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "border-red-500 bg-red-50 dark:bg-red-950/20"}`}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  {answerState === "correct" ? <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" /> : <XCircle className="h-5 w-5 text-red-500 shrink-0" />}
+                  <span className={`font-bold text-sm ${answerState === "correct" ? "text-green-600" : "text-red-600"}`}>
+                    {answerState === "correct" ? "Correct! 🎉" : "Incorrect"}
+                  </span>
+                </div>
+                {answerState === "incorrect" && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Correct answer:</p>
+                    <p className="font-semibold text-sm whitespace-pre-wrap">{currentCard.back}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Submit / Next button */}
+          <div className="mt-auto pb-safe shrink-0">
+            {answerState === "unanswered" ? (
+              <button
+                onClick={handleSubmit}
+                disabled={!answer.trim()}
+                className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-semibold text-base disabled:opacity-40 transition-opacity touch-manipulation active:opacity-80"
+              >
+                Check Answer
+              </button>
+            ) : (
+              <button
+                onClick={handleNext}
+                className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-semibold text-base transition-opacity touch-manipulation active:opacity-80"
+              >
+                {currentIndex < cards.length - 1 ? "Next →" : "Finish 🎉"}
+              </button>
+            )}
+            <p className="text-center text-xs text-muted-foreground mt-2">{currentIndex + 1} / {cards.length}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

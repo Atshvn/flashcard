@@ -1,11 +1,27 @@
 "use server";
 
 import { db } from "./db";
-import { decks, cards, progress, studyActivities } from "./db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { users, decks, cards, userCardProgress, studySessions } from "./db/schema";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
-import type { Deck, FlashCard, DeckFormData, CardProgress } from "./types";
+import type { Deck, FlashCard, DeckFormData, CardProgress, StudySession } from "./types";
 import { revalidatePath } from "next/cache";
+
+// ============================================================
+// Internal Auth Sync
+// ============================================================
+
+export async function getInternalUserId(firebaseUid: string, displayName: string = "Unknown", email: string = `${firebaseUid}@example.com`): Promise<string> {
+  const existing = await db.select({ id: users.id }).from(users).where(eq(users.firebaseUid, firebaseUid)).limit(1);
+  if (existing.length > 0) return existing[0].id;
+  
+  const [created] = await db.insert(users).values({
+    firebaseUid,
+    name: displayName,
+    email: email,
+  }).returning({ id: users.id });
+  return created.id;
+}
 
 // ============================================================
 // Slug Utilities
@@ -29,10 +45,11 @@ function generateSlug(title: string): string {
 // ============================================================
 
 export async function createDeck(
-  userId: string,
+  firebaseUid: string,
   userDisplayName: string,
   data: DeckFormData
 ): Promise<string> {
+  const internalUserId = await getInternalUserId(firebaseUid, userDisplayName);
   const slug = generateSlug(data.title);
 
   const [insertedDeck] = await db
@@ -42,8 +59,7 @@ export async function createDeck(
       description: data.description || "",
       isPublic: data.isPublic,
       slug,
-      userId,
-      userDisplayName,
+      userId: internalUserId,
     })
     .returning({ id: decks.id });
 
@@ -75,7 +91,7 @@ export async function updateDeck(
     cards?: FlashCard[];
   }
 ): Promise<void> {
-  if (data.title || data.description || data.isPublic !== undefined) {
+  if (data.title || data.description !== undefined || data.isPublic !== undefined) {
     await db
       .update(decks)
       .set({
@@ -92,7 +108,7 @@ export async function updateDeck(
     if (data.cards.length > 0) {
       await db.insert(cards).values(
         data.cards.map((c, i) => ({
-          id: c.id || uuidv4(),
+          id: c.id && c.id.includes("-") ? c.id : uuidv4(), // Keep UUID format valid
           deckId,
           front: c.front,
           back: c.back,
@@ -113,70 +129,51 @@ export async function deleteDeck(deckId: string): Promise<void> {
   revalidatePath("/explore");
 }
 
+// ... internal deck helper for joining
+async function mapDeckWithCardsAndUser(deckRecs: any, returnArray = false): Promise<any> {
+  if (!deckRecs || deckRecs.length === 0) return returnArray ? [] : null;
+  
+  const deckIds = deckRecs.map((d: any) => d.id);
+  const allCards = await db.select().from(cards).where(inArray(cards.deckId, deckIds)).orderBy(cards.order);
+  const userIds = Array.from(new Set(deckRecs.map((d: any) => d.userId)));
+  const allUsers = await db.select().from(users).where(inArray(users.id, userIds as string[]));
+
+  const result = deckRecs.map((d: any) => {
+    const owner = allUsers.find(u => u.id === d.userId);
+    return {
+      id: d.id,
+      title: d.title,
+      slug: d.slug,
+      description: d.description || "",
+      userId: owner?.firebaseUid || d.userId, // Return firebaseUid to UI for logic compatibility
+      userDisplayName: owner?.name || "Unknown",
+      isPublic: d.isPublic,
+      cards: allCards.filter(c => c.deckId === d.id).map((c) => ({ id: c.id, front: c.front, back: c.back })),
+      createdAt: d.createdAt.toISOString(),
+      updatedAt: d.updatedAt.toISOString(),
+    };
+  });
+  return returnArray ? result : result[0];
+}
+
 export async function getDeckBySlug(slug: string): Promise<Deck | null> {
   const deckRecs = await db.select().from(decks).where(eq(decks.slug, slug)).limit(1);
-  if (deckRecs.length === 0) return null;
-
-  const deck = deckRecs[0];
-  const cardRecs = await db
-    .select()
-    .from(cards)
-    .where(eq(cards.deckId, deck.id))
-    .orderBy(cards.order);
-
-  return {
-    id: deck.id,
-    title: deck.title,
-    slug: deck.slug,
-    description: deck.description || "",
-    userId: deck.userId,
-    userDisplayName: deck.userDisplayName,
-    isPublic: deck.isPublic,
-    cards: cardRecs.map((c) => ({ id: c.id, front: c.front, back: c.back })),
-    createdAt: deck.createdAt.toISOString() as any,
-    updatedAt: deck.updatedAt.toISOString() as any,
-  };
+  return mapDeckWithCardsAndUser(deckRecs);
 }
 
 export async function getDeckById(deckId: string): Promise<Deck | null> {
   const deckRecs = await db.select().from(decks).where(eq(decks.id, deckId)).limit(1);
-  if (deckRecs.length === 0) return null;
-  
-  const deck = deckRecs[0];
-  const cardRecs = await db
-    .select()
-    .from(cards)
-    .where(eq(cards.deckId, deck.id))
-    .orderBy(cards.order);
-
-  return {
-    ...deck,
-    description: deck.description || "",
-    cards: cardRecs.map((c) => ({ id: c.id, front: c.front, back: c.back })),
-    createdAt: deck.createdAt.toISOString() as any,
-    updatedAt: deck.updatedAt.toISOString() as any,
-  };
+  return mapDeckWithCardsAndUser(deckRecs);
 }
 
-export async function getUserDecks(userId: string): Promise<Deck[]> {
+export async function getUserDecks(firebaseUid: string): Promise<Deck[]> {
+  const internalUserId = await getInternalUserId(firebaseUid);
   const deckRecs = await db
     .select()
     .from(decks)
-    .where(eq(decks.userId, userId))
+    .where(eq(decks.userId, internalUserId))
     .orderBy(desc(decks.createdAt));
-
-  const allCards = await db.select({ deckId: cards.deckId, id: cards.id }).from(cards);
-
-  return deckRecs.map((d) => {
-    const dCards = allCards.filter((c) => c.deckId === d.id);
-    return {
-      ...d,
-      description: d.description || "",
-      cards: dCards as any,
-      createdAt: d.createdAt.toISOString() as any,
-      updatedAt: d.updatedAt.toISOString() as any,
-    };
-  });
+  return mapDeckWithCardsAndUser(deckRecs, true);
 }
 
 export async function getPublicDecks(): Promise<Deck[]> {
@@ -185,139 +182,185 @@ export async function getPublicDecks(): Promise<Deck[]> {
     .from(decks)
     .where(eq(decks.isPublic, true))
     .orderBy(desc(decks.createdAt));
-    
-  const allCards = await db.select({ deckId: cards.deckId, id: cards.id }).from(cards);
-
-  return deckRecs.map((d) => {
-    const dCards = allCards.filter((c) => c.deckId === d.id);
-    return {
-      ...d,
-      description: d.description || "",
-      cards: dCards as any,
-      createdAt: d.createdAt.toISOString() as any,
-      updatedAt: d.updatedAt.toISOString() as any,
-    };
-  });
+  return mapDeckWithCardsAndUser(deckRecs, true);
 }
 
 // ============================================================
-// Progress Operations
+// Enhanced Progress Operations (SM-2)
 // ============================================================
 
 export async function saveCardProgress(
-  userId: string,
-  deckId: string,
+  firebaseUid: string,
+  deckId: string, // unused but kept for compatibility
   cardId: string,
-  isCorrect: boolean
+  isCorrect: boolean,
+  interval: number = 1,
+  easeFactor: number = 2.5,
+  masteryLevel: number = 0,
+  nextReviewDate?: Date
 ): Promise<void> {
+  const internalUserId = await getInternalUserId(firebaseUid);
+  
   const existing = await db
     .select()
-    .from(progress)
+    .from(userCardProgress)
     .where(
       and(
-        eq(progress.userId, userId),
-        eq(progress.deckId, deckId),
-        eq(progress.cardId, cardId)
+        eq(userCardProgress.userId, internalUserId),
+        eq(userCardProgress.cardId, cardId)
       )
     )
     .limit(1);
 
   if (existing.length > 0) {
     await db
-      .update(progress)
+      .update(userCardProgress)
       .set({
-        correctCount: sql`${progress.correctCount} + ${isCorrect ? 1 : 0}`,
-        wrongCount: sql`${progress.wrongCount} + ${isCorrect ? 0 : 1}`,
-        lastReviewedAt: new Date(),
+        correctCount: sql`${userCardProgress.correctCount} + ${isCorrect ? 1 : 0}`,
+        wrongCount: sql`${userCardProgress.wrongCount} + ${isCorrect ? 0 : 1}`,
+        masteryLevel,
+        easeFactor,
+        interval,
+        nextReview: nextReviewDate || new Date(),
+        lastReviewed: new Date(),
       })
-      .where(eq(progress.id, existing[0].id));
+      .where(eq(userCardProgress.id, existing[0].id));
   } else {
-    await db.insert(progress).values({
-      userId,
-      deckId,
+    await db.insert(userCardProgress).values({
+      userId: internalUserId,
       cardId,
       correctCount: isCorrect ? 1 : 0,
       wrongCount: isCorrect ? 0 : 1,
+      masteryLevel,
+      easeFactor,
+      interval,
+      nextReview: nextReviewDate || new Date(),
+      lastReviewed: new Date(),
     });
   }
 }
 
 export async function getDeckProgress(
-  userId: string,
+  firebaseUid: string,
   deckId: string
 ): Promise<CardProgress[]> {
+  const internalUserId = await getInternalUserId(firebaseUid);
+  const deckCards = await db.select({ id: cards.id }).from(cards).where(eq(cards.deckId, deckId));
+  const cardIds = deckCards.map(c => c.id);
+
+  if (cardIds.length === 0) return [];
+
   const p = await db
     .select()
-    .from(progress)
-    .where(and(eq(progress.userId, userId), eq(progress.deckId, deckId)));
+    .from(userCardProgress)
+    .where(and(
+      eq(userCardProgress.userId, internalUserId),
+      inArray(userCardProgress.cardId, cardIds)
+    ));
     
   return p.map((item) => ({
-    ...item,
-    lastReviewedAt: item.lastReviewedAt.toISOString() as any,
+    userId: firebaseUid,
+    cardId: item.cardId,
+    correctCount: item.correctCount,
+    wrongCount: item.wrongCount,
+    masteryLevel: item.masteryLevel,
+    easeFactor: item.easeFactor,
+    interval: item.interval,
+    nextReview: item.nextReview?.toISOString() || null,
+    lastReviewed: item.lastReviewed?.toISOString() || null,
   }));
 }
 
-export async function getUserProgress(userId: string): Promise<CardProgress[]> {
-  const p = await db.select().from(progress).where(eq(progress.userId, userId));
+export async function getUserProgress(firebaseUid: string): Promise<CardProgress[]> {
+  const internalUserId = await getInternalUserId(firebaseUid);
+  const p = await db.select().from(userCardProgress).where(eq(userCardProgress.userId, internalUserId));
     
   return p.map((item) => ({
-    ...item,
-    lastReviewedAt: item.lastReviewedAt.toISOString() as any,
+    userId: firebaseUid,
+    cardId: item.cardId,
+    correctCount: item.correctCount,
+    wrongCount: item.wrongCount,
+    masteryLevel: item.masteryLevel,
+    easeFactor: item.easeFactor,
+    interval: item.interval,
+    nextReview: item.nextReview?.toISOString() || null,
+    lastReviewed: item.lastReviewed?.toISOString() || null,
   }));
 }
 
 // ============================================================
-// Study Activity Operations (for streak tracking)
+// Study Sessions (New feature)
 // ============================================================
 
-export async function recordStudyActivity(userId: string): Promise<void> {
-  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-  const activityId = `${userId}_${today}`;
+export async function saveStudySession(
+  firebaseUid: string,
+  deckId: string,
+  mode: string,
+  totalQuestions: number,
+  correctAnswers: number,
+  durationSeconds: number
+): Promise<void> {
+  const internalUserId = await getInternalUserId(firebaseUid);
   
-  const existing = await db
-    .select()
-    .from(studyActivities)
-    .where(eq(studyActivities.id, activityId))
-    .limit(1);
-
-  if (existing.length > 0) {
-    await db
-      .update(studyActivities)
-      .set({
-        cardsStudied: sql`${studyActivities.cardsStudied} + 1`,
-        timestamp: new Date(),
-      })
-      .where(eq(studyActivities.id, activityId));
-  } else {
-    await db.insert(studyActivities).values({
-      id: activityId,
-      userId,
-      date: today,
-      cardsStudied: 1,
-    });
-  }
+  await db.insert(studySessions).values({
+    userId: internalUserId,
+    deckId,
+    mode,
+    totalQuestions,
+    correctAnswers,
+    durationSeconds
+  });
 }
 
-export async function getStudyStreak(userId: string): Promise<number> {
-  const activities = await db
+export async function getStudySessions(firebaseUid: string): Promise<StudySession[]> {
+  const internalUserId = await getInternalUserId(firebaseUid);
+  const rows = await db
     .select()
-    .from(studyActivities)
-    .where(eq(studyActivities.userId, userId))
-    .orderBy(desc(studyActivities.date))
+    .from(studySessions)
+    .where(eq(studySessions.userId, internalUserId))
+    .orderBy(desc(studySessions.createdAt));
+
+  return rows.map(r => ({
+    id: r.id,
+    userId: firebaseUid,
+    deckId: r.deckId,
+    mode: r.mode,
+    totalQuestions: r.totalQuestions || 0,
+    correctAnswers: r.correctAnswers || 0,
+    durationSeconds: r.durationSeconds || 0,
+    createdAt: r.createdAt.toISOString()
+  }));
+}
+
+export async function getStudyStreak(firebaseUid: string): Promise<number> {
+  const internalUserId = await getInternalUserId(firebaseUid);
+  // calculate streak based on distinct dates from study sessions
+  const sessions = await db
+    .select({ date: sql<string>`DATE(created_at)` })
+    .from(studySessions)
+    .where(eq(studySessions.userId, internalUserId))
+    .orderBy(desc(sql`DATE(created_at)`))
+    .groupBy(sql`DATE(created_at)`)
     .limit(90);
 
-  if (activities.length === 0) return 0;
+  if (sessions.length === 0) return 0;
 
   let streak = 0;
   const today = new Date();
-
-  for (let i = 0; i < activities.length; i++) {
+  
+  for (let i = 0; i < sessions.length; i++) {
     const expectedDate = new Date(today);
     expectedDate.setDate(expectedDate.getDate() - i);
     const expectedDateStr = expectedDate.toISOString().split("T")[0];
 
-    if (activities[i].date === expectedDateStr) {
+    const actualDateStr = new Date(sessions[i].date).toISOString().split("T")[0];
+
+    if (actualDateStr === expectedDateStr) {
       streak++;
+    } else if (i === 0 && actualDateStr === new Date(today.getTime() - 86400000).toISOString().split("T")[0]) {
+      // allow streak if they haven't studied today but studied yesterday
+      streak++;
+      today.setDate(today.getDate() - 1);
     } else {
       break;
     }

@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/Navbar";
+import { AppShell } from "@/components/AppShell";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const inter = Inter({
@@ -52,13 +53,7 @@ export default function RootLayout({
             <TooltipProvider>
               <div className="relative min-h-screen flex flex-col">
                 <Navbar />
-                <main className="flex-1">{children}</main>
-                <footer className="border-t border-border/40 py-6">
-                  <div className="container mx-auto max-w-7xl px-4 text-center text-sm text-muted-foreground">
-                    © {new Date().getFullYear()} ANN Flash. Built for smarter
-                    learning.
-                  </div>
-                </footer>
+                <AppShell>{children}</AppShell>
               </div>
             </TooltipProvider>
           </AuthProvider>

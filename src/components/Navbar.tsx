@@ -29,11 +29,16 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useIsStudyMode } from "@/hooks/useIsStudyMode";
 
 export function Navbar() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isStudy = useIsStudyMode();
+
+  // Hide completely in study/focus mode
+  if (isStudy) return null;
 
   const handleLogout = async () => {
     await logoutUser();
@@ -51,8 +56,9 @@ export function Navbar() {
   };
 
   return (
+    <>
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-backdrop-filter:bg-background/60">
-      <div className="container flex h-16 items-center justify-between px-4 mx-auto max-w-7xl">
+      <div className="container flex h-14 md:h-16 items-center justify-between px-4 mx-auto max-w-7xl">
         {/* Logo */}
         <Link
           href="/"
@@ -244,5 +250,26 @@ export function Navbar() {
         </div>
       </div>
     </header>
+
+    {/* Mobile Bottom Navigation — only shown when logged in */}
+    {user && (
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/90 backdrop-blur-xl border-t border-border/40 flex items-center justify-around h-14 px-2 safe-area-bottom">
+        <Link href="/dashboard" className="flex flex-col items-center gap-0.5 py-1 px-4 text-muted-foreground hover:text-foreground transition-colors touch-manipulation">
+          <LayoutDashboard className="h-5 w-5" />
+          <span className="text-[10px] font-medium">Dashboard</span>
+        </Link>
+        <Link href="/deck/create" className="flex flex-col items-center gap-0.5 py-1 px-4 touch-manipulation">
+          <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-lg -mt-5 border-4 border-background">
+            <Plus className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <span className="text-[10px] font-medium text-muted-foreground mt-1">Create</span>
+        </Link>
+        <Link href="/explore" className="flex flex-col items-center gap-0.5 py-1 px-4 text-muted-foreground hover:text-foreground transition-colors touch-manipulation">
+          <BookOpen className="h-5 w-5" />
+          <span className="text-[10px] font-medium">Explore</span>
+        </Link>
+      </nav>
+    )}
+    </>
   );
 }
