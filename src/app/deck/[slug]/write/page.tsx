@@ -58,7 +58,16 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
 
   useEffect(() => {
     getDeckBySlug(slug).then((d) => {
-      if (d) { setDeck(d); setCards(d.cards); }
+      if (d) {
+        setDeck(d);
+        // Shuffle cards (Fisher-Yates) for a fresh random order each session
+        const shuffled = [...d.cards];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        setCards(shuffled);
+      }
       setLoading(false);
     });
   }, [slug]);
@@ -228,12 +237,13 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
                     {answerState === "correct" ? "Correct! 🎉" : "Incorrect"}
                   </span>
                 </div>
-                {answerState === "incorrect" && (
-                  <div className="mb-2">
-                    <p className="text-xs text-muted-foreground mb-1">Correct answer:</p>
-                    <p className="font-semibold text-sm">{currentCard.back}</p>
-                  </div>
-                )}
+                {/* Show answer for both correct and incorrect */}
+                <div className="mb-2">
+                  <p className="text-xs text-muted-foreground mb-1">
+                    {answerState === "correct" ? "Answer:" : "Correct answer:"}
+                  </p>
+                  <p className="font-semibold text-sm">{currentCard.back}</p>
+                </div>
                 {currentCard.description && (
                   <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed border-t pt-2 mt-1">
                     {currentCard.description}
