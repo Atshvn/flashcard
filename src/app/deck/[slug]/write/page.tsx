@@ -56,7 +56,7 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answer, setAnswer] = useState("");
   const [answerState, setAnswerState] = useState<AnswerState>("unanswered");
-  const [hintCount, setHintCount] = useState(0);
+  const [revealedIndices, setRevealedIndices] = useState<Set<number>>(new Set());
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -96,7 +96,7 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
       setCurrentIndex((i) => i + 1);
       setAnswer("");
       setAnswerState("unanswered");
-      setHintCount(0);
+      setRevealedIndices(new Set());
     } else {
       if (user && deck) {
         const duration = Math.round((Date.now() - sessionStartRef.current) / 1000);
@@ -106,13 +106,26 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
     }
   }, [currentIndex, cards.length, user, deck, correctCount]);
 
-  // Build masked hint string: show first `hintCount` chars, rest as underscores
-  const getHint = (text: string, revealed: number) => {
+  // Build masked hint string: reveal only indices in the Set, spaces always visible
+  const getHint = (text: string, revealed: Set<number>) => {
     return text
       .split("")
-      .map((ch, i) => (i < revealed ? ch : ch === " " ? " " : "_"))
+      .map((ch, i) => (ch === " " || revealed.has(i) ? ch : "_"))
       .join("");
   };
+
+  // Reveal one random unrevealed non-space character
+  const handleHint = useCallback(() => {
+    if (!currentCard) return;
+    const back = currentCard.back;
+    const hidden = back
+      .split("")
+      .map((ch, i) => ({ ch, i }))
+      .filter(({ ch, i }) => ch !== " " && !revealedIndices.has(i));
+    if (hidden.length === 0) return;
+    const pick = hidden[Math.floor(Math.random() * hidden.length)];
+    setRevealedIndices((prev) => new Set([...prev, pick.i]));
+  }, [currentCard, revealedIndices]);
 
   // Global Enter key handler: when answer is shown, Enter → Next (no mouse needed)
   useEffect(() => {
@@ -153,7 +166,7 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
           <Button className="h-12 gap-2 touch-manipulation" onClick={() => {
             setCards((prev) => shuffleArray(prev));
             setCurrentIndex(0); setAnswer(""); setAnswerState("unanswered");
-            setCorrectCount(0); setWrongCount(0); setHintCount(0); setFinished(false);
+            setCorrectCount(0); setWrongCount(0); setRevealedIndices(new Set()); setFinished(false);
           }}>
             <RotateCcw className="h-4 w-4" />Try Again
           </Button>
@@ -200,12 +213,12 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
               {answerState === "unanswered" && currentCard && (
                 <button
                   type="button"
-                  onClick={() => setHintCount((n) => Math.min(n + 1, currentCard.back.length))}
-                  disabled={hintCount >= currentCard.back.length}
+                  onClick={handleHint}
+                  disabled={revealedIndices.size >= currentCard.back.replace(/ /g, "").length}
                   className="flex items-center gap-1 text-xs text-amber-500 hover:text-amber-600 disabled:opacity-40 transition-colors px-2 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 touch-manipulation"
                 >
                   <Lightbulb className="h-3.5 w-3.5" />
-                  Hint {hintCount > 0 ? `(${hintCount}/${currentCard.back.length})` : ""}
+                  Hint {revealedIndices.size > 0 ? `(${revealedIndices.size}/${currentCard.back.replace(/ /g, "").length})` : ""}
                 </button>
               )}
             </div>
@@ -228,9 +241,9 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
               autoFocus
               style={{ fontSize: "16px" }} /* Prevent iOS zoom */
             />
-            {hintCount > 0 && answerState === "unanswered" && currentCard && (
+            {revealedIndices.size > 0 && answerState === "unanswered" && currentCard && (
               <p className="text-xs font-mono tracking-widest text-amber-500 px-1 select-none">
-                {getHint(currentCard.back, hintCount)}
+                {getHint(currentCard.back, revealedIndices)}
               </p>
             )}
           </div>
