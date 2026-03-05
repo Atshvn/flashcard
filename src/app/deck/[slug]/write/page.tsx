@@ -63,6 +63,7 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
   const [finished, setFinished] = useState(false);
   const sessionStartRef = useRef<number>(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const nextBtnRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { sessionStartRef.current = Date.now(); }, []);
 
   useEffect(() => {
@@ -127,19 +128,15 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
     setRevealedIndices((prev) => new Set([...prev, pick.i]));
   }, [currentCard, revealedIndices]);
 
-  // Global Enter key handler: when answer is shown, Enter → Next (no mouse needed)
+  // After submit: focus Next button so Enter key clicks it (no global window handler needed)
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey && answerState !== "unanswered") {
-        e.preventDefault();
-        handleNext();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [answerState, handleNext]);
+    if (answerState !== "unanswered") {
+      const id = setTimeout(() => nextBtnRef.current?.focus(), 0);
+      return () => clearTimeout(id);
+    }
+  }, [answerState]);
 
-  // Re-focus textarea after moving to next card (setTimeout ensures DOM is ready)
+  // After Next: re-focus textarea
   useEffect(() => {
     if (answerState === "unanswered") {
       const id = setTimeout(() => textareaRef.current?.focus(), 0);
@@ -197,84 +194,87 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
       <Progress value={progress} className="mb-4 h-1.5" />
 
       {currentCard && (
-        <div className="flex flex-col flex-1 gap-3 overflow-y-auto">
-          {/* Front card */}
-          <Card className="border-border/50 shadow-lg shrink-0">
-            <CardContent className="p-5 md:p-8 text-center">
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">What is the meaning of:</p>
-              <p className="text-2xl md:text-3xl font-bold whitespace-pre-wrap leading-tight">{currentCard.front}</p>
-            </CardContent>
-          </Card>
+        <div className="flex flex-col flex-1 min-h-0 gap-3">
+          {/* Scrollable content: front card + input + result */}
+          <div className="flex-1 overflow-y-auto min-h-0 flex flex-col gap-3">
+            {/* Front card */}
+            <Card className="border-border/50 shadow-lg shrink-0">
+              <CardContent className="p-5 md:p-6 text-center">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">What is the meaning of:</p>
+                <p className="text-2xl md:text-3xl font-bold whitespace-pre-wrap leading-tight">{currentCard.front}</p>
+              </CardContent>
+            </Card>
 
-          {/* Input */}
-          <div className="shrink-0 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-muted-foreground">Your answer:</label>
-              {answerState === "unanswered" && currentCard && (
-                <button
-                  type="button"
-                  onClick={handleHint}
-                  disabled={revealedIndices.size >= currentCard.back.replace(/ /g, "").length}
-                  className="flex items-center gap-1 text-xs text-amber-500 hover:text-amber-600 disabled:opacity-40 transition-colors px-2 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 touch-manipulation"
-                >
-                  <Lightbulb className="h-3.5 w-3.5" />
-                  Hint {revealedIndices.size > 0 ? `(${revealedIndices.size}/${currentCard.back.replace(/ /g, "").length})` : ""}
-                </button>
+            {/* Input */}
+            <div className="shrink-0 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-muted-foreground">Your answer:</label>
+                {answerState === "unanswered" && currentCard && (
+                  <button
+                    type="button"
+                    onClick={handleHint}
+                    disabled={revealedIndices.size >= currentCard.back.replace(/ /g, "").length}
+                    className="flex items-center gap-1 text-xs text-amber-500 hover:text-amber-600 disabled:opacity-40 transition-colors px-2 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 touch-manipulation"
+                  >
+                    <Lightbulb className="h-3.5 w-3.5" />
+                    Hint {revealedIndices.size > 0 ? `(${revealedIndices.size}/${currentCard.back.replace(/ /g, "").length})` : ""}
+                  </button>
+                )}
+              </div>
+              <textarea
+                ref={textareaRef}
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && answerState === "unanswered") {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                placeholder="Type your answer..."
+                disabled={answerState !== "unanswered"}
+                rows={2}
+                className={`w-full rounded-xl border px-4 py-3 text-base resize-none bg-background outline-none transition-colors
+                  ${answerState === "correct" ? "border-green-500" : answerState === "incorrect" ? "border-red-500" : "border-border focus:border-primary"}
+                  disabled:opacity-60`}
+                autoFocus
+                style={{ fontSize: "16px" }}
+              />
+              {revealedIndices.size > 0 && answerState === "unanswered" && currentCard && (
+                <p className="text-xs font-mono tracking-widest text-amber-500 px-1 select-none">
+                  {getHint(currentCard.back, revealedIndices)}
+                </p>
               )}
             </div>
-            <textarea
-              ref={textareaRef}
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  if (answerState === "unanswered") handleSubmit(); else handleNext();
-                }
-              }}
-              placeholder="Type your answer..."
-              disabled={answerState !== "unanswered"}
-              rows={2}
-              className={`w-full rounded-xl border px-4 py-3 text-base resize-none bg-background outline-none transition-colors
-                ${answerState === "correct" ? "border-green-500 focus:ring-green-500" : answerState === "incorrect" ? "border-red-500 focus:ring-red-500" : "border-border focus:border-primary"}
-                disabled:opacity-60`}
-              autoFocus
-              style={{ fontSize: "16px" }} /* Prevent iOS zoom */
-            />
-            {revealedIndices.size > 0 && answerState === "unanswered" && currentCard && (
-              <p className="text-xs font-mono tracking-widest text-amber-500 px-1 select-none">
-                {getHint(currentCard.back, revealedIndices)}
-              </p>
+
+            {/* Result card */}
+            {answerState !== "unanswered" && (
+              <Card className={`shrink-0 border-2 ${answerState === "correct" ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "border-red-500 bg-red-50 dark:bg-red-950/20"}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    {answerState === "correct" ? <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" /> : <XCircle className="h-5 w-5 text-red-500 shrink-0" />}
+                    <span className={`font-bold text-sm ${answerState === "correct" ? "text-green-600" : "text-red-600"}`}>
+                      {answerState === "correct" ? "Correct! 🎉" : "Incorrect"}
+                    </span>
+                  </div>
+                  <div className="mb-2">
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {answerState === "correct" ? "Answer:" : "Correct answer:"}
+                    </p>
+                    <p className="font-semibold text-sm">{currentCard.back}</p>
+                  </div>
+                  {currentCard.description && (
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed border-t pt-2 mt-1">
+                      {currentCard.description}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
             )}
           </div>
 
-          {answerState !== "unanswered" && (
-            <Card className={`shrink-0 border-2 ${answerState === "correct" ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "border-red-500 bg-red-50 dark:bg-red-950/20"}`}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  {answerState === "correct" ? <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" /> : <XCircle className="h-5 w-5 text-red-500 shrink-0" />}
-                  <span className={`font-bold text-sm ${answerState === "correct" ? "text-green-600" : "text-red-600"}`}>
-                    {answerState === "correct" ? "Correct! 🎉" : "Incorrect"}
-                  </span>
-                </div>
-                {/* Show answer for both correct and incorrect */}
-                <div className="mb-2">
-                  <p className="text-xs text-muted-foreground mb-1">
-                    {answerState === "correct" ? "Answer:" : "Correct answer:"}
-                  </p>
-                  <p className="font-semibold text-sm">{currentCard.back}</p>
-                </div>
-                {currentCard.description && (
-                  <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed border-t pt-2 mt-1">
-                    {currentCard.description}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Submit / Next button */}
-          <div className="mt-auto pb-safe shrink-0">
+          {/* Submit / Next button — always visible at bottom */}
+          <div className="shrink-0 pb-safe pt-1">
             {answerState === "unanswered" ? (
               <button
                 onClick={handleSubmit}
@@ -285,8 +285,9 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
               </button>
             ) : (
               <button
+                ref={nextBtnRef}
                 onClick={handleNext}
-                className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-semibold text-base transition-opacity touch-manipulation active:opacity-80"
+                className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-semibold text-base transition-opacity touch-manipulation active:opacity-80 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
               >
                 {currentIndex < cards.length - 1 ? "Next →" : "Finish 🎉"}
               </button>
