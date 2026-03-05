@@ -10,7 +10,7 @@ import type { Deck, FlashCard } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, ArrowLeft, CheckCircle2, XCircle, RotateCcw, Lightbulb } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2, XCircle, MinusCircle, RotateCcw, Lightbulb } from "lucide-react";
 
 function similarity(a: string, b: string): number {
   const s1 = a.toLowerCase().trim();
@@ -36,7 +36,7 @@ function similarity(a: string, b: string): number {
   return (longer.length - costs[shorter.length]) / longer.length;
 }
 
-type AnswerState = "unanswered" | "correct" | "incorrect";
+type AnswerState = "unanswered" | "correct" | "close" | "incorrect";
 
 function shuffleArray<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -83,7 +83,9 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
     if (!currentCard || answerState !== "unanswered") return;
     const sim = similarity(answer, currentCard.back);
     const isCorrect = sim >= 0.75;
-    setAnswerState(isCorrect ? "correct" : "incorrect");
+    const isClose = !isCorrect && sim >= 0.4;
+    const state: AnswerState = isCorrect ? "correct" : isClose ? "close" : "incorrect";
+    setAnswerState(state);
     if (isCorrect) setCorrectCount((c) => c + 1);
     else setWrongCount((c) => c + 1);
     if (user && deck) {
@@ -235,7 +237,7 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
                 disabled={answerState !== "unanswered"}
                 rows={2}
                 className={`w-full rounded-xl border px-4 py-3 text-base resize-none bg-background outline-none transition-colors
-                  ${answerState === "correct" ? "border-green-500" : answerState === "incorrect" ? "border-red-500" : "border-border focus:border-primary"}
+                  ${answerState === "correct" ? "border-green-500" : answerState === "close" ? "border-amber-400" : answerState === "incorrect" ? "border-red-500" : "border-border focus:border-primary"}
                   disabled:opacity-60`}
                 autoFocus
                 style={{ fontSize: "16px" }}
@@ -249,12 +251,24 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
 
             {/* Result card */}
             {answerState !== "unanswered" && (
-              <Card className={`shrink-0 border-2 ${answerState === "correct" ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "border-red-500 bg-red-50 dark:bg-red-950/20"}`}>
+              <Card className={`shrink-0 border-2 ${
+                answerState === "correct" ? "border-green-500 bg-green-50 dark:bg-green-950/20" :
+                answerState === "close"   ? "border-amber-400 bg-amber-50 dark:bg-amber-950/20" :
+                                           "border-red-500 bg-red-50 dark:bg-red-950/20"
+              }`}>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    {answerState === "correct" ? <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" /> : <XCircle className="h-5 w-5 text-red-500 shrink-0" />}
-                    <span className={`font-bold text-sm ${answerState === "correct" ? "text-green-600" : "text-red-600"}`}>
-                      {answerState === "correct" ? "Correct! 🎉" : "Incorrect"}
+                    {answerState === "correct"
+                      ? <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
+                      : answerState === "close"
+                        ? <MinusCircle className="h-5 w-5 text-amber-500 shrink-0" />
+                        : <XCircle className="h-5 w-5 text-red-500 shrink-0" />}
+                    <span className={`font-bold text-sm ${
+                      answerState === "correct" ? "text-green-600" :
+                      answerState === "close"   ? "text-amber-600" :
+                                                 "text-red-600"
+                    }`}>
+                      {answerState === "correct" ? "Correct! 🎉" : answerState === "close" ? "Almost! 🟡" : "Incorrect"}
                     </span>
                   </div>
                   <div className="mb-2">
