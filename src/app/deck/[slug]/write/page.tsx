@@ -10,7 +10,7 @@ import type { Deck, FlashCard } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, ArrowLeft, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2, XCircle, RotateCcw, Lightbulb } from "lucide-react";
 
 function similarity(a: string, b: string): number {
   const s1 = a.toLowerCase().trim();
@@ -47,11 +47,13 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answer, setAnswer] = useState("");
   const [answerState, setAnswerState] = useState<AnswerState>("unanswered");
+  const [hintCount, setHintCount] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [finished, setFinished] = useState(false);
   const sessionStartRef = useRef<number>(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { sessionStartRef.current = Date.now(); }, []);
 
   useEffect(() => {
@@ -82,6 +84,7 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
       setCurrentIndex((i) => i + 1);
       setAnswer("");
       setAnswerState("unanswered");
+      setHintCount(0);
     } else {
       if (user && deck) {
         const duration = Math.round((Date.now() - sessionStartRef.current) / 1000);
@@ -90,6 +93,34 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
       setFinished(true);
     }
   }, [currentIndex, cards.length, user, deck, correctCount]);
+
+  // Build masked hint string: show first `hintCount` chars, rest as underscores
+  const getHint = (text: string, revealed: number) => {
+    return text
+      .split("")
+      .map((ch, i) => (i < revealed ? ch : ch === " " ? " " : "_"))
+      .join("");
+  };
+
+  // Global Enter key handler: when answer is shown, Enter → Next (no mouse needed)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey && answerState !== "unanswered") {
+        e.preventDefault();
+        handleNext();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [answerState, handleNext]);
+
+  // Re-focus textarea after moving to next card (setTimeout ensures DOM is ready)
+  useEffect(() => {
+    if (answerState === "unanswered") {
+      const id = setTimeout(() => textareaRef.current?.focus(), 0);
+      return () => clearTimeout(id);
+    }
+  }, [answerState, currentIndex]);
 
   if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (!deck) return <div className="min-h-[60vh] flex items-center justify-center"><p>Deck not found</p></div>;
@@ -148,8 +179,22 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
 
           {/* Input */}
           <div className="shrink-0 space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">Your answer:</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-muted-foreground">Your answer:</label>
+              {answerState === "unanswered" && currentCard && (
+                <button
+                  type="button"
+                  onClick={() => setHintCount((n) => Math.min(n + 1, currentCard.back.length))}
+                  disabled={hintCount >= currentCard.back.length}
+                  className="flex items-center gap-1 text-xs text-amber-500 hover:text-amber-600 disabled:opacity-40 transition-colors px-2 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 touch-manipulation"
+                >
+                  <Lightbulb className="h-3.5 w-3.5" />
+                  Hint {hintCount > 0 ? `(${hintCount}/${currentCard.back.length})` : ""}
+                </button>
+              )}
+            </div>
             <textarea
+              ref={textareaRef}
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
               onKeyDown={(e) => {
@@ -167,6 +212,11 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
               autoFocus
               style={{ fontSize: "16px" }} /* Prevent iOS zoom */
             />
+            {hintCount > 0 && answerState === "unanswered" && currentCard && (
+              <p className="text-xs font-mono tracking-widest text-amber-500 px-1 select-none">
+                {getHint(currentCard.back, hintCount)}
+              </p>
+            )}
           </div>
 
           {answerState !== "unanswered" && (
