@@ -8,18 +8,27 @@ import type { Deck, FlashCard, DeckFormData, CardProgress, StudySession } from "
 import { revalidatePath } from "next/cache";
 
 // ============================================================
-// Internal Auth Sync
+// In-memory cache: firebaseUid → internalUserId
+// Lives for the lifetime of the server process (cleared on restart)
 // ============================================================
+const uidCache = new Map<string, string>();
 
 export async function getInternalUserId(firebaseUid: string, displayName: string = "Unknown", email: string = `${firebaseUid}@example.com`): Promise<string> {
+  // Fast path: return cached id without hitting DB
+  if (uidCache.has(firebaseUid)) return uidCache.get(firebaseUid)!;
+
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.firebaseUid, firebaseUid)).limit(1);
-  if (existing.length > 0) return existing[0].id;
+  if (existing.length > 0) {
+    uidCache.set(firebaseUid, existing[0].id);
+    return existing[0].id;
+  }
   
   const [created] = await db.insert(users).values({
     firebaseUid,
     name: displayName,
     email: email,
   }).returning({ id: users.id });
+  uidCache.set(firebaseUid, created.id);
   return created.id;
 }
 
@@ -136,9 +145,13 @@ async function mapDeckWithCardsAndUser(deckRecs: any, returnArray = false): Prom
   if (!deckRecs || deckRecs.length === 0) return returnArray ? [] : null;
   
   const deckIds = deckRecs.map((d: any) => d.id);
-  const allCards = await db.select().from(cards).where(inArray(cards.deckId, deckIds)).orderBy(cards.order);
-  const userIds = Array.from(new Set(deckRecs.map((d: any) => d.userId)));
-  const allUsers = await db.select().from(users).where(inArray(users.id, userIds as string[]));
+  const userIds = Array.from(new Set(deckRecs.map((d: any) => d.userId))) as string[];
+
+  // Run cards and users queries in parallel — saves one sequential round-trip
+  const [allCards, allUsers] = await Promise.all([
+    db.select().from(cards).where(inArray(cards.deckId, deckIds)).orderBy(cards.order),
+    db.select().from(users).where(inArray(users.id, userIds)),
+  ]);
 
   const result = deckRecs.map((d: any) => {
     const owner = allUsers.find(u => u.id === d.userId);

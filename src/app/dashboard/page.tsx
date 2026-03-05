@@ -125,8 +125,37 @@ export default function DashboardPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="container mx-auto max-w-7xl px-4 py-8 animate-pulse">
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="space-y-2">
+            <div className="h-8 w-36 bg-muted rounded-lg" />
+            <div className="h-4 w-52 bg-muted rounded-lg" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-10 w-24 bg-muted rounded-lg" />
+            <div className="h-10 w-28 bg-muted rounded-lg" />
+          </div>
+        </div>
+        {/* Analytics row skeleton */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-28 bg-muted rounded-xl" />
+          ))}
+        </div>
+        {/* Extended analytics skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-24 bg-muted rounded-xl" />
+          ))}
+        </div>
+        {/* Deck grid skeleton */}
+        <div className="h-6 w-28 bg-muted rounded mb-4" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-40 bg-muted rounded-xl" />
+          ))}
+        </div>
       </div>
     );
   }

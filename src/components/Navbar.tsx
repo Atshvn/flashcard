@@ -81,7 +81,13 @@ export function Navbar() {
 
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-1">
-          {user && (
+          {loading ? (
+            <>
+              <div className="h-8 w-24 bg-muted animate-pulse rounded-md" />
+              <div className="h-8 w-24 bg-muted animate-pulse rounded-md" />
+              <div className="h-8 w-20 bg-muted animate-pulse rounded-md" />
+            </>
+          ) : user && (
             <>
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/dashboard" className="gap-2">
