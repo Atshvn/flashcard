@@ -38,6 +38,15 @@ function similarity(a: string, b: string): number {
 
 type AnswerState = "unanswered" | "correct" | "incorrect";
 
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export default function WriteModePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const { user } = useAuth();
@@ -60,13 +69,7 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
     getDeckBySlug(slug).then((d) => {
       if (d) {
         setDeck(d);
-        // Shuffle cards (Fisher-Yates) for a fresh random order each session
-        const shuffled = [...d.cards];
-        for (let i = shuffled.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-        }
-        setCards(shuffled);
+        setCards(shuffleArray(d.cards));
       }
       setLoading(false);
     });
@@ -147,7 +150,11 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
           <Card><CardContent className="pt-4 pb-4 text-center"><div className="text-2xl font-bold text-primary">{accuracy}%</div><div className="text-xs text-muted-foreground mt-1">Score</div></CardContent></Card>
         </div>
         <div className="flex flex-col gap-3 w-full max-w-xs">
-          <Button className="h-12 gap-2 touch-manipulation" onClick={() => { setCurrentIndex(0); setAnswer(""); setAnswerState("unanswered"); setCorrectCount(0); setWrongCount(0); setFinished(false); }}>
+          <Button className="h-12 gap-2 touch-manipulation" onClick={() => {
+            setCards((prev) => shuffleArray(prev));
+            setCurrentIndex(0); setAnswer(""); setAnswerState("unanswered");
+            setCorrectCount(0); setWrongCount(0); setHintCount(0); setFinished(false);
+          }}>
             <RotateCcw className="h-4 w-4" />Try Again
           </Button>
           <Button variant="outline" className="h-12 touch-manipulation" asChild><Link href={`/deck/${slug}`}>Back to Deck</Link></Button>
@@ -177,7 +184,7 @@ export default function WriteModePage({ params }: { params: Promise<{ slug: stri
       <Progress value={progress} className="mb-4 h-1.5" />
 
       {currentCard && (
-        <div className="flex flex-col flex-1 gap-3 overflow-hidden">
+        <div className="flex flex-col flex-1 gap-3 overflow-y-auto">
           {/* Front card */}
           <Card className="border-border/50 shadow-lg shrink-0">
             <CardContent className="p-5 md:p-8 text-center">
