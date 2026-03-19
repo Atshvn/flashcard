@@ -267,11 +267,11 @@ export function Navbar() {
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           <div className="mx-4 mb-4">
-            <div className="flex items-center justify-around rounded-[28px] bg-background/75 backdrop-blur-2xl border border-border/20 shadow-[0_8px_32px_rgba(0,0,0,0.22)] px-2 py-2">
+            <div className="flex items-center justify-around rounded-[28px] bg-background/40 backdrop-blur-3xl border border-white/15 shadow-[0_8px_40px_rgba(0,0,0,0.28)] px-2 py-2">
               {([
                 { href: "/dashboard", icon: LayoutDashboard, label: "Decks" },
-                { href: "/deck/create", icon: Plus, label: "Tạo mới", isCreate: true },
-                { href: "/explore", icon: BookOpen, label: "Khám phá" },
+                { href: "/deck/create", icon: Plus, label: "Create", isCreate: true },
+                { href: "/explore", icon: BookOpen, label: "Explore" },
               ] as { href: string; icon: React.ElementType; label: string; isCreate?: boolean }[]).map(({ href, icon: Icon, label, isCreate }) => {
                 const active = pathname === href || pathname.startsWith(href);
                 if (isCreate) {

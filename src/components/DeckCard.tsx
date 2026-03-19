@@ -107,7 +107,7 @@ export function DeckCard({
 
           {/* Meta row */}
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs text-muted-foreground">{deck.cards.length} thẻ</span>
+            <span className="text-xs text-muted-foreground">{deck.cards.length} cards</span>
             <Badge variant={deck.isPublic ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
               {deck.isPublic ? "Public" : "Private"}
             </Badge>
@@ -123,11 +123,11 @@ export function DeckCard({
         <Button size="sm" className="flex-1 h-9 gap-1.5 rounded-xl" asChild>
           <Link href={`/study/${deck.slug}`}>
             <BookOpen className="h-3.5 w-3.5" />
-            Học ngay
+            Study
           </Link>
         </Button>
         <Button size="sm" variant="outline" className="h-9 px-4 rounded-xl" asChild>
-          <Link href={`/deck/${deck.slug}`}>Xem</Link>
+          <Link href={`/deck/${deck.slug}`}>View</Link>
         </Button>
         {deck.isPublic && (
           <Button size="sm" variant="ghost" className="h-9 w-9 p-0 rounded-xl shrink-0" onClick={handleCopyLink}>
