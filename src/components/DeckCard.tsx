@@ -3,10 +3,6 @@
 import Link from "next/link";
 import {
   Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,105 +52,89 @@ export function DeckCard({
       {/* Gradient accent top */}
       <div className="h-1 w-full gradient-primary opacity-60 group-hover:opacity-100 transition-opacity" />
 
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <CardTitle className="text-lg font-semibold truncate">
-              {deck.title}
-            </CardTitle>
-            {deck.description && (
-              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                {deck.description}
-              </p>
+      <div className="flex items-start gap-3 p-4">
+        {/* Icon */}
+        <div className="shrink-0 w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
+          <Layers className="h-5 w-5 text-primary" />
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-1">
+            <div className="min-w-0">
+              <p className="font-semibold text-base leading-snug truncate">{deck.title}</p>
+              {deck.description && (
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{deck.description}</p>
+              )}
+            </div>
+            {isOwner && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 -mr-1 -mt-0.5">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href={`/deck/${deck.slug}/edit`}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Edit
+                    </Link>
+                  </DropdownMenuItem>
+                  {onExport && (
+                    <DropdownMenuItem onClick={() => onExport(deck)}>
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Export JSON
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={handleCopyLink}>
+                    <Share2 className="mr-2 h-4 w-4" />
+                    {copied ? "Copied!" : "Copy Link"}
+                  </DropdownMenuItem>
+                  {onDelete && (
+                    <DropdownMenuItem
+                      onClick={() => onDelete(deck.id)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
 
-          {isOwner && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link href={`/deck/${deck.slug}/edit`}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Edit
-                  </Link>
-                </DropdownMenuItem>
-                {onExport && (
-                  <DropdownMenuItem onClick={() => onExport(deck)}>
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Export JSON
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onClick={handleCopyLink}>
-                  <Share2 className="mr-2 h-4 w-4" />
-                  {copied ? "Copied!" : "Copy Link"}
-                </DropdownMenuItem>
-                {onDelete && (
-                  <DropdownMenuItem
-                    onClick={() => onDelete(deck.id)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </CardHeader>
-
-      <CardContent className="pb-3 flex-1">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Layers className="h-3.5 w-3.5" />
-            <span>{deck.cards.length} cards</span>
+          {/* Meta row */}
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-xs text-muted-foreground">{deck.cards.length} thẻ</span>
+            <Badge variant={deck.isPublic ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
+              {deck.isPublic ? "Public" : "Private"}
+            </Badge>
+            {!isOwner && deck.userDisplayName && (
+              <span className="text-xs text-muted-foreground">· {deck.userDisplayName}</span>
+            )}
           </div>
-          <Badge
-            variant={deck.isPublic ? "default" : "secondary"}
-            className="text-xs"
-          >
-            {deck.isPublic ? "Public" : "Private"}
-          </Badge>
         </div>
-        {!isOwner && deck.userDisplayName && (
-          <p className="text-xs text-muted-foreground mt-2">
-            by {deck.userDisplayName}
-          </p>
-        )}
-      </CardContent>
+      </div>
 
-      <CardFooter className="pt-3 border-t border-border/50 gap-2">
-        <Button size="sm" className="flex-1 gap-1.5" asChild>
+      {/* Action row */}
+      <div className="flex items-center gap-2 px-4 pb-3 pt-0">
+        <Button size="sm" className="flex-1 h-9 gap-1.5 rounded-xl" asChild>
           <Link href={`/study/${deck.slug}`}>
             <BookOpen className="h-3.5 w-3.5" />
-            Study
+            Học ngay
           </Link>
         </Button>
-        <Button size="sm" variant="outline" className="gap-1.5" asChild>
-          <Link href={`/deck/${deck.slug}`}>
-            View
-          </Link>
+        <Button size="sm" variant="outline" className="h-9 px-4 rounded-xl" asChild>
+          <Link href={`/deck/${deck.slug}`}>Xem</Link>
         </Button>
         {deck.isPublic && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="px-2"
-            onClick={handleCopyLink}
-          >
+          <Button size="sm" variant="ghost" className="h-9 w-9 p-0 rounded-xl shrink-0" onClick={handleCopyLink}>
             <Copy className="h-3.5 w-3.5" />
           </Button>
         )}
-      </CardFooter>
+      </div>
     </Card>
   );
 }

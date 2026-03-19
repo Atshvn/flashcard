@@ -260,52 +260,50 @@ export function Navbar() {
         </div>
       </header>
 
-      {/* Mobile Bottom Navigation — Telegram-style */}
+      {/* Mobile Bottom Navigation — Telegram floating pill */}
       {user && (
         <nav
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 rounded-t-3xl bg-background/80 backdrop-blur-2xl border-t border-border/30 shadow-[0_-8px_32px_rgba(0,0,0,0.18)]"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
-          <div className="flex items-center justify-around px-4 pt-2 pb-1">
-            {([
-              { href: "/dashboard", icon: LayoutDashboard, label: "Decks" },
-              { href: "/deck/create", icon: Plus, label: "Tạo mới", isCreate: true },
-              { href: "/explore", icon: BookOpen, label: "Khám phá" },
-            ] as { href: string; icon: React.ElementType; label: string; isCreate?: boolean }[]).map(({ href, icon: Icon, label, isCreate }) => {
-              const active = pathname === href || pathname.startsWith(href);
-              if (isCreate) {
+          <div className="mx-4 mb-4">
+            <div className="flex items-center justify-around rounded-[28px] bg-background/75 backdrop-blur-2xl border border-border/20 shadow-[0_8px_32px_rgba(0,0,0,0.22)] px-2 py-2">
+              {([
+                { href: "/dashboard", icon: LayoutDashboard, label: "Decks" },
+                { href: "/deck/create", icon: Plus, label: "Tạo mới", isCreate: true },
+                { href: "/explore", icon: BookOpen, label: "Khám phá" },
+              ] as { href: string; icon: React.ElementType; label: string; isCreate?: boolean }[]).map(({ href, icon: Icon, label, isCreate }) => {
+                const active = pathname === href || pathname.startsWith(href);
+                if (isCreate) {
+                  return (
+                    <Link key={href} href={href}
+                      className="flex flex-col items-center gap-1 py-1 flex-1 touch-manipulation"
+                    >
+                      <div className="h-11 w-11 rounded-2xl bg-primary flex items-center justify-center shadow-md shadow-primary/30">
+                        <Icon className="h-5 w-5 text-primary-foreground" />
+                      </div>
+                      <span className="text-[10px] font-semibold text-muted-foreground">{label}</span>
+                    </Link>
+                  );
+                }
                 return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className="flex flex-col items-center gap-1.5 py-1 flex-1 touch-manipulation"
+                  <Link key={href} href={href}
+                    className="flex flex-col items-center gap-1 py-1 flex-1 touch-manipulation"
                   >
-                    <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
-                      <Icon className="h-6 w-6 text-primary-foreground" />
+                    <div className={`h-11 w-11 rounded-2xl flex items-center justify-center transition-all duration-200 ${
+                      active ? "bg-primary/15" : ""
+                    }`}>
+                      <Icon className={`h-5 w-5 transition-colors duration-200 ${
+                        active ? "text-primary" : "text-muted-foreground"
+                      }`} />
                     </div>
-                    <span className="text-[10px] font-semibold text-muted-foreground">{label}</span>
+                    <span className={`text-[10px] font-semibold transition-colors duration-200 ${
+                      active ? "text-primary" : "text-muted-foreground"
+                    }`}>{label}</span>
                   </Link>
                 );
-              }
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className="flex flex-col items-center gap-1.5 py-1 flex-1 touch-manipulation"
-                >
-                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center transition-all duration-200 ${
-                    active ? "bg-primary/15" : "bg-transparent"
-                  }`}>
-                    <Icon className={`h-6 w-6 transition-colors duration-200 ${
-                      active ? "text-primary" : "text-muted-foreground"
-                    }`} />
-                  </div>
-                  <span className={`text-[10px] font-semibold transition-colors duration-200 ${
-                    active ? "text-primary" : "text-muted-foreground"
-                  }`}>{label}</span>
-                </Link>
-              );
-            })}
+              })}
+            </div>
           </div>
         </nav>
       )}
