@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
@@ -267,11 +268,11 @@ export function Navbar() {
         >
           <div className="mx-3 mb-3 flex items-center justify-around rounded-2xl border border-white/10 bg-background/70 backdrop-blur-2xl shadow-2xl shadow-black/20 px-1 py-1">
             {([
-              { href: "/", icon: Home, label: "Home" },
-              { href: "/dashboard", icon: LayoutDashboard, label: "Decks" },
+              { href: "/", icon: Home, label: "Home", isCreate: false },
+              { href: "/dashboard", icon: LayoutDashboard, label: "Decks", isCreate: false },
               { href: "/deck/create", icon: Plus, label: "Create", isCreate: true },
-              { href: "/explore", icon: BookOpen, label: "Explore" },
-            ] as const).map(({ href, icon: Icon, label, isCreate }) => {
+              { href: "/explore", icon: BookOpen, label: "Explore", isCreate: false },
+            ] as { href: string; icon: React.ElementType; label: string; isCreate: boolean }[]).map(({ href, icon: Icon, label, isCreate }) => {
               const active = pathname === href || (href !== "/" && pathname.startsWith(href));
               if (isCreate) {
                 return (
