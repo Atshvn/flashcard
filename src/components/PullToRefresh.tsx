@@ -20,15 +20,17 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
     return (containerRef.current?.scrollTop ?? window.scrollY) === 0;
   }, []);
 
-  const onTouchStart = useCallback((e: TouchEvent) => {
+  const onTouchStart = useCallback((e: Event) => {
+    const touch = e as TouchEvent;
     if (!canPull()) return;
-    startYRef.current = e.touches[0].clientY;
+    startYRef.current = touch.touches[0].clientY;
     isPullingRef.current = false;
   }, [canPull]);
 
-  const onTouchMove = useCallback((e: TouchEvent) => {
+  const onTouchMove = useCallback((e: Event) => {
+    const touch = e as TouchEvent;
     if (startYRef.current === null || refreshing) return;
-    const dy = e.touches[0].clientY - startYRef.current;
+    const dy = touch.touches[0].clientY - startYRef.current;
     if (dy <= 0) {
       startYRef.current = null;
       return;
@@ -60,11 +62,11 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
     const el = document as unknown as EventTarget;
     el.addEventListener("touchstart", onTouchStart, { passive: true });
     el.addEventListener("touchmove", onTouchMove, { passive: false });
-    el.addEventListener("touchend", onTouchEnd, { passive: true });
+    el.addEventListener("touchend", onTouchEnd as EventListener, { passive: true });
     return () => {
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchend", onTouchEnd as EventListener);
     };
   }, [onTouchStart, onTouchMove, onTouchEnd]);
 
