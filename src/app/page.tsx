@@ -18,28 +18,33 @@ export default function HomePage() {
         </div>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            Xin chào, {user.displayName?.split(" ").pop() || "bạn"} 👋
+            Hey, {user.displayName?.split(" ")[0] || "there"} 👋
           </h1>
-          <p className="text-muted-foreground mt-2">Hôm nay học gì?</p>
+          <p className="text-muted-foreground mt-2">What are you studying today?</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
           <Button className="flex-1 gap-2 h-11" asChild>
             <Link href="/dashboard">
               <Layers className="h-4 w-4" />
-              Decks của tôi
+              My Decks
             </Link>
           </Button>
           <Button variant="outline" className="flex-1 gap-2 h-11" asChild>
             <Link href="/deck/create">
               <Plus className="h-4 w-4" />
-              Tạo mới
+              Create
             </Link>
           </Button>
         </div>
-        <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2 text-muted-foreground"
+          asChild
+        >
           <Link href="/explore">
             <BookOpen className="h-4 w-4" />
-            Khám phá bộ từ
+            Explore decks
           </Link>
         </Button>
       </div>
@@ -53,17 +58,17 @@ export default function HomePage() {
       </div>
       <div>
         <h1 className="text-3xl font-bold tracking-tight">ANN Flash</h1>
-        <p className="text-muted-foreground mt-2">Ứng dụng học flashcard</p>
+        <p className="text-muted-foreground mt-2">Smart flashcard learning</p>
       </div>
       <div className="flex flex-col gap-3 w-full">
         <Button className="w-full gap-2 h-11" asChild>
           <Link href="/login">
-            Đăng nhập
+            Sign in
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
         <Button variant="outline" className="w-full h-11" asChild>
-          <Link href="/register">Đăng ký tài khoản</Link>
+          <Link href="/register">Create account</Link>
         </Button>
       </div>
     </div>
