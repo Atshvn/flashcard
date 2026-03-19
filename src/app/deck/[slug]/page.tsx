@@ -4,7 +4,7 @@ import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { getDeckBySlug, getDeckProgress } from "@/lib/firestore";
+import { getDeckBySlugWithProgress } from "@/lib/firestore";
 import type { Deck, CardProgress } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +40,7 @@ export default function DeckViewPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = use(params);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [deck, setDeck] = useState<Deck | null>(null);
   const [progress, setProgress] = useState<CardProgress[]>([]);
@@ -49,22 +49,17 @@ export default function DeckViewPage({
   const [selectedMode, setSelectedMode] = useState<StudyMode>("flashcard");
 
   useEffect(() => {
-    async function loadDeck() {
-      try {
-        const deckData = await getDeckBySlug(slug);
+    // Wait for Firebase auth to resolve so we make exactly ONE combined call
+    if (authLoading) return;
+    setLoading(true);
+    getDeckBySlugWithProgress(slug, user?.uid ?? null)
+      .then(({ deck: deckData, progress: progressData }) => {
         setDeck(deckData);
-        if (deckData && user) {
-          const progressData = await getDeckProgress(user.uid, deckData.id);
-          setProgress(progressData);
-        }
-      } catch (error) {
-        console.error("Failed to load deck:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadDeck();
-  }, [slug, user]);
+        setProgress(progressData);
+      })
+      .catch((error) => console.error("Failed to load deck:", error))
+      .finally(() => setLoading(false));
+  }, [slug, authLoading, user?.uid]);
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(window.location.href);

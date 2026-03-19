@@ -181,6 +181,81 @@ export async function getDeckBySlug(slug: string): Promise<Deck | null> {
   return mapDeckWithCardsAndUser(deckRecs);
 }
 
+/**
+ * Combined fetch: deck + user progress in a single server action call.
+ * Runs getInternalUserId in parallel with deck fetch, then fetches
+ * cards/owner/progress with minimal sequential round-trips.
+ */
+export async function getDeckBySlugWithProgress(
+  slug: string,
+  firebaseUid: string | null
+): Promise<{ deck: Deck | null; progress: CardProgress[] }> {
+  // Step 1: deck record + internalUserId in parallel
+  const [deckRecs, internalUserId] = await Promise.all([
+    db.select().from(decks).where(eq(decks.slug, slug)).limit(1),
+    firebaseUid ? getInternalUserId(firebaseUid) : Promise.resolve(null),
+  ]);
+
+  if (!deckRecs || deckRecs.length === 0) return { deck: null, progress: [] };
+
+  const deckRec = deckRecs[0];
+
+  // Step 2: cards + deck owner in parallel
+  const [deckCards, ownerRows] = await Promise.all([
+    db.select().from(cards).where(eq(cards.deckId, deckRec.id)).orderBy(cards.order),
+    db.select().from(users).where(eq(users.id, deckRec.userId)).limit(1),
+  ]);
+
+  const owner = ownerRows[0];
+  const cardIds = deckCards.map((c) => c.id);
+
+  // Step 3: progress (needs card IDs from step 2)
+  const progressRows =
+    internalUserId && cardIds.length > 0
+      ? await db
+          .select()
+          .from(userCardProgress)
+          .where(
+            and(
+              eq(userCardProgress.userId, internalUserId),
+              inArray(userCardProgress.cardId, cardIds)
+            )
+          )
+      : [];
+
+  const deck: Deck = {
+    id: deckRec.id,
+    title: deckRec.title,
+    slug: deckRec.slug,
+    description: deckRec.description || "",
+    userId: owner?.firebaseUid || deckRec.userId,
+    userDisplayName: owner?.name || "Unknown",
+    isPublic: deckRec.isPublic,
+    cards: deckCards.map((c) => ({
+      id: c.id,
+      front: c.front,
+      back: c.back,
+      description: c.description ?? undefined,
+    })),
+    createdAt: deckRec.createdAt.toISOString(),
+    updatedAt: deckRec.updatedAt.toISOString(),
+  };
+
+  const progress: CardProgress[] = progressRows.map((item) => ({
+    userId: firebaseUid!,
+    cardId: item.cardId,
+    correctCount: item.correctCount,
+    wrongCount: item.wrongCount,
+    masteryLevel: item.masteryLevel,
+    easeFactor: item.easeFactor,
+    interval: item.interval,
+    nextReview: item.nextReview?.toISOString() || null,
+    lastReviewed: item.lastReviewed?.toISOString() || null,
+  }));
+
+  return { deck, progress };
+}
+
 export async function getDeckById(deckId: string): Promise<Deck | null> {
   const deckRecs = await db.select().from(decks).where(eq(decks.id, deckId)).limit(1);
   return mapDeckWithCardsAndUser(deckRecs);
@@ -220,33 +295,12 @@ export async function saveCardProgress(
   nextReviewDate?: Date
 ): Promise<void> {
   const internalUserId = await getInternalUserId(firebaseUid);
-  
-  const existing = await db
-    .select()
-    .from(userCardProgress)
-    .where(
-      and(
-        eq(userCardProgress.userId, internalUserId),
-        eq(userCardProgress.cardId, cardId)
-      )
-    )
-    .limit(1);
+  const reviewDate = nextReviewDate || new Date();
 
-  if (existing.length > 0) {
-    await db
-      .update(userCardProgress)
-      .set({
-        correctCount: sql`${userCardProgress.correctCount} + ${isCorrect ? 1 : 0}`,
-        wrongCount: sql`${userCardProgress.wrongCount} + ${isCorrect ? 0 : 1}`,
-        masteryLevel,
-        easeFactor,
-        interval,
-        nextReview: nextReviewDate || new Date(),
-        lastReviewed: new Date(),
-      })
-      .where(eq(userCardProgress.id, existing[0].id));
-  } else {
-    await db.insert(userCardProgress).values({
+  // Single UPSERT — uniqueIndex on (userId, cardId) ensures conflict detection
+  await db
+    .insert(userCardProgress)
+    .values({
       userId: internalUserId,
       cardId,
       correctCount: isCorrect ? 1 : 0,
@@ -254,10 +308,21 @@ export async function saveCardProgress(
       masteryLevel,
       easeFactor,
       interval,
-      nextReview: nextReviewDate || new Date(),
+      nextReview: reviewDate,
       lastReviewed: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [userCardProgress.userId, userCardProgress.cardId],
+      set: {
+        correctCount: sql`${userCardProgress.correctCount} + ${isCorrect ? 1 : 0}`,
+        wrongCount: sql`${userCardProgress.wrongCount} + ${isCorrect ? 0 : 1}`,
+        masteryLevel,
+        easeFactor,
+        interval,
+        nextReview: reviewDate,
+        lastReviewed: new Date(),
+      },
     });
-  }
 }
 
 export async function getDeckProgress(
@@ -265,20 +330,20 @@ export async function getDeckProgress(
   deckId: string
 ): Promise<CardProgress[]> {
   const internalUserId = await getInternalUserId(firebaseUid);
-  const deckCards = await db.select({ id: cards.id }).from(cards).where(eq(cards.deckId, deckId));
-  const cardIds = deckCards.map(c => c.id);
 
-  if (cardIds.length === 0) return [];
-
+  // Single JOIN query instead of 2 sequential queries
   const p = await db
-    .select()
+    .select({ progress: userCardProgress })
     .from(userCardProgress)
-    .where(and(
-      eq(userCardProgress.userId, internalUserId),
-      inArray(userCardProgress.cardId, cardIds)
-    ));
-    
-  return p.map((item) => ({
+    .innerJoin(cards, eq(userCardProgress.cardId, cards.id))
+    .where(
+      and(
+        eq(userCardProgress.userId, internalUserId),
+        eq(cards.deckId, deckId)
+      )
+    );
+
+  return p.map(({ progress: item }) => ({
     userId: firebaseUid,
     cardId: item.cardId,
     correctCount: item.correctCount,
