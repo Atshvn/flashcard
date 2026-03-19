@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BookOpen, LayoutDashboard, LogOut, Menu, Plus, Home } from "lucide-react";
+import { BookOpen, LayoutDashboard, LogOut, Menu, Plus } from "lucide-react";
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useIsStudyMode } from "@/hooks/useIsStudyMode";
@@ -260,31 +260,30 @@ export function Navbar() {
         </div>
       </header>
 
-      {/* Mobile Bottom Navigation — Telegram-style glass bar */}
+      {/* Mobile Bottom Navigation — Telegram-style */}
       {user && (
         <nav
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 rounded-t-3xl bg-background/80 backdrop-blur-2xl border-t border-border/30 shadow-[0_-8px_32px_rgba(0,0,0,0.18)]"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
-          <div className="mx-3 mb-3 flex items-center justify-around rounded-2xl border border-white/10 bg-background/70 backdrop-blur-2xl shadow-2xl shadow-black/20 px-1 py-1">
+          <div className="flex items-center justify-around px-4 pt-2 pb-1">
             {([
-              { href: "/", icon: Home, label: "Home", isCreate: false },
-              { href: "/dashboard", icon: LayoutDashboard, label: "Decks", isCreate: false },
-              { href: "/deck/create", icon: Plus, label: "Create", isCreate: true },
-              { href: "/explore", icon: BookOpen, label: "Explore", isCreate: false },
-            ] as { href: string; icon: React.ElementType; label: string; isCreate: boolean }[]).map(({ href, icon: Icon, label, isCreate }) => {
-              const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+              { href: "/dashboard", icon: LayoutDashboard, label: "Decks" },
+              { href: "/deck/create", icon: Plus, label: "Tạo mới", isCreate: true },
+              { href: "/explore", icon: BookOpen, label: "Khám phá" },
+            ] as { href: string; icon: React.ElementType; label: string; isCreate?: boolean }[]).map(({ href, icon: Icon, label, isCreate }) => {
+              const active = pathname === href || pathname.startsWith(href);
               if (isCreate) {
                 return (
                   <Link
                     key={href}
                     href={href}
-                    className="flex flex-col items-center gap-1 py-2 px-5 touch-manipulation"
+                    className="flex flex-col items-center gap-1.5 py-1 flex-1 touch-manipulation"
                   >
-                    <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/40">
-                      <Icon className="h-5 w-5 text-primary-foreground" />
+                    <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
+                      <Icon className="h-6 w-6 text-primary-foreground" />
                     </div>
-                    <span className="text-[10px] font-medium text-muted-foreground">{label}</span>
+                    <span className="text-[10px] font-semibold text-muted-foreground">{label}</span>
                   </Link>
                 );
               }
@@ -292,16 +291,16 @@ export function Navbar() {
                 <Link
                   key={href}
                   href={href}
-                  className="flex flex-col items-center gap-1 py-2 px-5 touch-manipulation transition-colors"
+                  className="flex flex-col items-center gap-1.5 py-1 flex-1 touch-manipulation"
                 >
-                  <div className={`p-1.5 rounded-xl transition-all ${
-                    active ? "bg-primary/15" : ""
+                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center transition-all duration-200 ${
+                    active ? "bg-primary/15" : "bg-transparent"
                   }`}>
-                    <Icon className={`h-5 w-5 transition-colors ${
+                    <Icon className={`h-6 w-6 transition-colors duration-200 ${
                       active ? "text-primary" : "text-muted-foreground"
                     }`} />
                   </div>
-                  <span className={`text-[10px] font-medium transition-colors ${
+                  <span className={`text-[10px] font-semibold transition-colors duration-200 ${
                     active ? "text-primary" : "text-muted-foreground"
                   }`}>{label}</span>
                 </Link>
