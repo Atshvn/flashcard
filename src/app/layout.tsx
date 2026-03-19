@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -6,11 +6,21 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/Navbar";
 import { AppShell } from "@/components/AppShell";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
 });
+
+export const viewport: Viewport = {
+  themeColor: "#09090b",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: {
@@ -27,11 +37,30 @@ export const metadata: Metadata = {
     "spaced repetition",
   ],
   authors: [{ name: "ANN Flash" }],
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "ANN Flash",
+    startupImage: [
+      {
+        url: "/apple-touch-icon.png",
+      },
+    ],
+  },
+  formatDetection: {
+    telephone: false,
+  },
   openGraph: {
     title: "ANN Flash - Smart Flashcard Learning",
     description:
       "Master any subject with smart flashcards. Create, study, and track your progress.",
     type: "website",
+  },
+  icons: {
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
 };
 
@@ -58,6 +87,7 @@ export default function RootLayout({
             </TooltipProvider>
           </AuthProvider>
         </ThemeProvider>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );
