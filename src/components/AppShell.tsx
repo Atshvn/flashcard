@@ -7,7 +7,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (isStudy) {
     // Full-screen focus mode: no padding, no footer
-    return <main className="flex-1">{children}</main>;
+    return (
+      <main className="flex-1" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+        {children}
+      </main>
+    );
   }
 
   return (
