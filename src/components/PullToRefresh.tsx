@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
-const THRESHOLD = 72; // px to pull before triggering
-const MAX_PULL = 100; // max visual pull distance
+const THRESHOLD = 72;
+const MAX_PULL = 100;
 
 export function PullToRefresh({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -13,76 +13,94 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
   const [refreshing, setRefreshing] = useState(false);
   const startYRef = useRef<number | null>(null);
   const isPullingRef = useRef(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const canPull = useCallback(() => {
-    // Only allow pull when scrolled to top
-    return (containerRef.current?.scrollTop ?? window.scrollY) === 0;
-  }, []);
-
-  const onTouchStart = useCallback((e: Event) => {
-    const touch = e as TouchEvent;
-    if (!canPull()) return;
-    startYRef.current = touch.touches[0].clientY;
-    isPullingRef.current = false;
-  }, [canPull]);
-
-  const onTouchMove = useCallback((e: Event) => {
-    const touch = e as TouchEvent;
-    if (startYRef.current === null || refreshing) return;
-    const dy = touch.touches[0].clientY - startYRef.current;
-    if (dy <= 0) {
-      startYRef.current = null;
-      return;
-    }
-    if (!canPull()) return;
-    isPullingRef.current = true;
-    // Rubber-band resistance
-    const pull = Math.min(dy * 0.45, MAX_PULL);
-    setPullY(pull);
-    if (dy > 10) e.preventDefault();
-  }, [refreshing, canPull]);
-
-  const onTouchEnd = useCallback(async () => {
-    if (!isPullingRef.current) return;
-    if (pullY >= THRESHOLD) {
-      setRefreshing(true);
-      setPullY(THRESHOLD);
-      router.refresh();
-      // Give Next.js router.refresh() time to re-fetch, then reset
-      await new Promise((r) => setTimeout(r, 1000));
-      setRefreshing(false);
-    }
-    setPullY(0);
-    startYRef.current = null;
-    isPullingRef.current = false;
-  }, [pullY, router]);
+  const pullYRef = useRef(0);
+  const refreshingRef = useRef(false);
 
   useEffect(() => {
-    const el = document as unknown as EventTarget;
-    el.addEventListener("touchstart", onTouchStart, { passive: true });
-    el.addEventListener("touchmove", onTouchMove, { passive: false });
-    el.addEventListener("touchend", onTouchEnd as EventListener, { passive: true });
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("touchend", onTouchEnd as EventListener);
+    // Keep ref in sync so event handlers always see current value
+    refreshingRef.current = refreshing;
+  }, [refreshing]);
+
+  useEffect(() => {
+    // Non-passive touchmove — only added while a potential pull gesture is active
+    const handleTouchMove = (e: TouchEvent) => {
+      if (startYRef.current === null) return;
+      const dy = e.touches[0].clientY - startYRef.current;
+      if (dy <= 0) {
+        // Swiping up — abandon pull tracking immediately
+        startYRef.current = null;
+        document.removeEventListener("touchmove", handleTouchMove);
+        return;
+      }
+      isPullingRef.current = true;
+      const pull = Math.min(dy * 0.45, MAX_PULL);
+      pullYRef.current = pull;
+      setPullY(pull);
+      e.preventDefault();
     };
-  }, [onTouchStart, onTouchMove, onTouchEnd]);
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (refreshingRef.current) return;
+      if (window.scrollY > 0) return; // only engage at top of page
+      startYRef.current = e.touches[0].clientY;
+      isPullingRef.current = false;
+      pullYRef.current = 0;
+      // Register non-passive listener ONLY when at top — zero overhead elsewhere
+      document.addEventListener("touchmove", handleTouchMove, { passive: false });
+    };
+
+    const handleTouchEnd = () => {
+      document.removeEventListener("touchmove", handleTouchMove);
+      if (!isPullingRef.current) {
+        startYRef.current = null;
+        return;
+      }
+      const currentPull = pullYRef.current;
+      startYRef.current = null;
+      isPullingRef.current = false;
+
+      if (currentPull >= THRESHOLD) {
+        refreshingRef.current = true;
+        setRefreshing(true);
+        setPullY(THRESHOLD);
+        pullYRef.current = THRESHOLD;
+        router.refresh();
+        setTimeout(() => {
+          setRefreshing(false);
+          refreshingRef.current = false;
+          setPullY(0);
+          pullYRef.current = 0;
+        }, 1000);
+      } else {
+        setPullY(0);
+        pullYRef.current = 0;
+      }
+    };
+
+    document.addEventListener("touchstart", handleTouchStart, { passive: true });
+    document.addEventListener("touchend", handleTouchEnd, { passive: true });
+    return () => {
+      document.removeEventListener("touchstart", handleTouchStart);
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [router]);
 
   const progress = Math.min(pullY / THRESHOLD, 1);
-  const isTriggered = pullY >= THRESHOLD;
   const showIndicator = pullY > 8 || refreshing;
 
   return (
-    <div ref={containerRef} className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col">
       {/* Pull indicator */}
       <div
-        className="flex items-center justify-center overflow-hidden transition-none"
+        className="flex items-center justify-center overflow-hidden"
         style={{
           height: refreshing ? THRESHOLD : pullY,
           opacity: showIndicator ? 1 : 0,
-          transition: refreshing || pullY === 0 ? "height 0.25s ease, opacity 0.2s" : "none",
+          transition:
+            refreshing || pullY === 0
+              ? "height 0.25s ease, opacity 0.2s"
+              : "none",
         }}
       >
         <div
@@ -105,7 +123,8 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       <div
         style={{
           transform: `translateY(${refreshing ? THRESHOLD : pullY}px)`,
-          transition: refreshing || pullY === 0 ? "transform 0.25s ease" : "none",
+          transition:
+            refreshing || pullY === 0 ? "transform 0.25s ease" : "none",
           flex: 1,
         }}
       >
